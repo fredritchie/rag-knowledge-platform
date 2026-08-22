@@ -1,0 +1,51 @@
+number,category,title,filename,url,test_value
+1,AI-RAG,Attention Is All You Need,01_attention_is_all_you_need.pdf,https://arxiv.org/pdf/1706.03762.pdf,Foundational transformer paper with equations and figures
+2,AI-RAG,BERT Pre-training of Deep Bidirectional Transformers,02_bert.pdf,https://arxiv.org/pdf/1810.04805.pdf,Technical paper with tables and benchmark results
+3,AI-RAG,Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks,03_rag_original.pdf,https://arxiv.org/pdf/2005.11401.pdf,Core RAG paper and cross-document RAG terminology
+4,AI-RAG,Dense Passage Retrieval for Open-Domain Question Answering,04_dpr.pdf,https://arxiv.org/pdf/2004.04906.pdf,Dense retrieval terminology and evaluation tables
+5,AI-RAG,REALM Retrieval-Augmented Language Model Pre-Training,05_realm.pdf,https://arxiv.org/pdf/2002.08909.pdf,Retriever-generator architecture comparison
+6,AI-RAG,ColBERT Efficient and Effective Passage Search,06_colbert.pdf,https://arxiv.org/pdf/2004.12832.pdf,Late-interaction retrieval and technical figures
+7,AI-RAG,Sentence-BERT Sentence Embeddings using Siamese BERT-Networks,07_sentence_bert.pdf,https://arxiv.org/pdf/1908.10084.pdf,Embedding and semantic similarity content
+8,AI-RAG,Text Embeddings by Weakly-Supervised Contrastive Pre-training E5,08_e5_embeddings.pdf,https://arxiv.org/pdf/2212.03533.pdf,Embedding benchmark tables and retrieval terminology
+9,AI-RAG,Precise Zero-Shot Dense Retrieval without Relevance Labels HyDE,09_hyde.pdf,https://arxiv.org/pdf/2212.10496.pdf,Zero-shot retrieval and generated-document concepts
+10,AI-RAG,Atlas Few-shot Learning with Retrieval Augmented Language Models,10_atlas.pdf,https://arxiv.org/pdf/2208.03299.pdf,RAG training and retrieval architecture
+11,AI-RAG,Self-RAG Learning to Retrieve Generate and Critique through Self-Reflection,11_self_rag.pdf,https://arxiv.org/pdf/2310.11511.pdf,Advanced adaptive RAG and reflection tokens
+12,AI-RAG,RAGAS Automated Evaluation of Retrieval Augmented Generation,12_ragas.pdf,https://arxiv.org/pdf/2309.15217.pdf,RAG evaluation metrics and quality testing
+13,AI-RAG,RAGTruth A Hallucination Corpus for Trustworthy RAG,13_ragtruth.pdf,https://arxiv.org/pdf/2401.00396.pdf,Hallucination and groundedness evaluation
+14,AI-RAG,Retrieval-Augmented Generation for AI-Generated Content A Survey,14_rag_survey.pdf,https://arxiv.org/pdf/2402.19473.pdf,Long survey useful for chunking and cross-reference tests
+15,AI-RAG,Improving Text Embeddings with Large Language Models,15_improving_text_embeddings.pdf,https://arxiv.org/pdf/2401.00368.pdf,Embedding experiments and multilingual retrieval
+16,AI-RAG,Developing RAG-based LLM Systems from PDFs An Experience Report,16_rag_from_pdfs.pdf,https://arxiv.org/pdf/2410.15944.pdf,Directly relevant PDF ingestion and RAG engineering
+17,AI-RAG,From PDF to RAG-Ready Evaluating Document Conversion Frameworks,17_pdf_to_rag_ready.pdf,https://arxiv.org/pdf/2604.04948.pdf,Modern PDF parsing and conversion comparison
+18,AI-RAG,Llama 2 Open Foundation and Fine-Tuned Chat Models,18_llama2.pdf,https://arxiv.org/pdf/2307.09288.pdf,Long model paper with tables and safety sections
+19,AI-RAG,FlashAttention Fast and Memory-Efficient Exact Attention,19_flashattention.pdf,https://arxiv.org/pdf/2205.14135.pdf,GPU and inference engineering terminology
+20,AI-RAG,Efficient Memory Management for LLM Serving with PagedAttention,20_vllm_pagedattention.pdf,https://arxiv.org/pdf/2309.06180.pdf,vLLM serving GPU KV-cache and throughput concepts
+21,Security-Standards,NIST SP 800-207 Zero Trust Architecture,21_nist_zero_trust.pdf,https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-207.pdf,Security standard with exact control terminology
+22,Security-Standards,NIST SP 800-190 Application Container Security Guide,22_nist_container_security.pdf,https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-190.pdf,Container and orchestrator security
+23,Security-Standards,NIST SP 800-53 Rev 5 Security and Privacy Controls,23_nist_800_53r5.pdf,https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r5.pdf,Very long 492-page structured control catalog
+24,Security-Standards,NIST SP 800-61 Rev 3 Incident Response Recommendations,24_nist_incident_response.pdf,https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-61r3.pdf,Incident response terminology and structured guidance
+25,Security-Standards,NIST SP 800-218 Secure Software Development Framework,25_nist_ssdf.pdf,https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-218.pdf,DevSecOps and secure SDLC exact identifiers
+26,Security-Standards,NIST SP 800-160 Vol 1 Rev 1 Engineering Trustworthy Secure Systems,26_nist_secure_systems_engineering.pdf,https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-160v1r1.pdf,Long engineering standard with references and diagrams
+27,Security-Standards,NIST SP 800-171 Rev 3 Protecting CUI,27_nist_800_171r3.pdf,https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-171r3.pdf,Requirements and control identifiers ideal for hybrid retrieval
+28,Security-Standards,NIST SP 800-204C DevSecOps for Microservices with Service Mesh,28_nist_devsecops_microservices.pdf,https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-204C.pdf,Microservices service mesh and DevSecOps terminology
+29,Security-Standards,NIST SP 800-70 Rev 5 National Checklist Program,29_nist_checklist_program.pdf,https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-70r5.pdf,Checklist-heavy structured content
+30,Security-Standards,NIST Cybersecurity Framework 2.0,30_nist_csf_2.pdf,https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.29.pdf,Framework functions categories and tables
+31,Networking-RFC,RFC 9110 HTTP Semantics,31_rfc9110_http_semantics.pdf,https://www.rfc-editor.org/rfc/rfc9110.pdf,194-page standards document with exact HTTP terminology
+32,Networking-RFC,RFC 9111 HTTP Caching,32_rfc9111_http_caching.pdf,https://www.rfc-editor.org/rfc/rfc9111.pdf,Closely related document for semantic disambiguation
+33,Networking-RFC,RFC 9112 HTTP 1.1,33_rfc9112_http11.pdf,https://www.rfc-editor.org/rfc/rfc9112.pdf,Protocol details and exact header syntax
+34,Networking-RFC,RFC 9113 HTTP 2,34_rfc9113_http2.pdf,https://www.rfc-editor.org/rfc/rfc9113.pdf,Overlapping HTTP concepts useful for reranking tests
+35,Networking-RFC,RFC 9114 HTTP 3,35_rfc9114_http3.pdf,https://www.rfc-editor.org/rfc/rfc9114.pdf,HTTP over QUIC cross-document references
+36,Networking-RFC,RFC 9000 QUIC Transport Protocol,36_rfc9000_quic.pdf,https://www.rfc-editor.org/rfc/rfc9000.pdf,Long networking standard with protocol state and terminology
+37,Networking-RFC,RFC 9001 Using TLS to Secure QUIC,37_rfc9001_quic_tls.pdf,https://www.rfc-editor.org/rfc/rfc9001.pdf,Cross-reference-heavy networking security document
+38,Networking-RFC,RFC 9002 QUIC Loss Detection and Congestion Control,38_rfc9002_quic_recovery.pdf,https://www.rfc-editor.org/rfc/rfc9002.pdf,Algorithms and exact parameter names
+39,Networking-RFC,RFC 9293 Transmission Control Protocol TCP,39_rfc9293_tcp.pdf,https://www.rfc-editor.org/rfc/rfc9293.pdf,Long protocol standard with states and exact terms
+40,Networking-RFC,RFC 9204 QPACK Field Compression for HTTP 3,40_rfc9204_qpack.pdf,https://www.rfc-editor.org/rfc/rfc9204.pdf,Narrow technical topic for precision retrieval tests
+41,Reports-Manuals,NASA Systems Engineering Handbook,41_nasa_systems_engineering_handbook.pdf,https://www.nasa.gov/wp-content/uploads/2018/09/nasa_systems_engineering_handbook_0.pdf,Large handbook with diagrams checklists and engineering processes
+42,Reports-Manuals,WHO World Health Statistics 2024,42_who_world_health_statistics_2024.pdf,https://iris.who.int/bitstream/handle/10665/376869/9789240094703-eng.pdf?sequence=1,Table-heavy real-world statistical report
+43,Reports-Manuals,CNCF Cloud Native Security Whitepaper Version 2,43_cncf_cloud_native_security.pdf,https://www.cncf.io/wp-content/uploads/2022/06/CNCF_cloud-native-security-whitepaper-May2022-v2.pdf,Cloud-native architecture diagrams and security guidance
+44,Reports-Manuals,CISA Zero Trust Maturity Model Version 2,44_cisa_zero_trust_maturity_model.pdf,https://www.cisa.gov/sites/default/files/2023-04/zero_trust_maturity_model_v2_508.pdf,Matrix and maturity-model retrieval tests
+45,Reports-Manuals,AWS Well-Architected Framework,45_aws_well_architected_framework.pdf,https://docs.aws.amazon.com/pdfs/wellarchitected/latest/framework/wellarchitected-framework.pdf,Large cloud architecture document with repeated best-practice structure
+46,Reports-Manuals,CISA Secure by Design Principles and Approaches for Secure Software,46_cisa_secure_by_design.pdf,https://www.cisa.gov/sites/default/files/2023-10/Shifting-the-Balance-of-Cybersecurity-Risk-Principles-and-Approaches-for-Secure-by-Design-Software.pdf,Policy and software-security prose
+47,Reports-Manuals,World Development Report 2024 The Middle-Income Trap,47_world_bank_wdr_2024.pdf,https://documents1.worldbank.org/curated/en/099115409302442268/pdf/IDU-1db544df-9b0a-44ca-949e-26c89b9da9db.pdf,Economic report with charts tables and domain shift
+48,Reports-Manuals,IPCC AR6 Synthesis Report Full Volume,48_ipcc_ar6_synthesis_report.pdf,https://www.ipcc.ch/report/ar6/syr/downloads/report/IPCC_AR6_SYR_FullVolume.pdf,Long visual report with figures glossary and scientific language
+49,Reports-Manuals,NSA CISA Kubernetes Hardening Guidance Version 1.2,49_kubernetes_hardening_guidance.pdf,https://media.defense.gov/2022/Aug/29/2003066362/-1/-1/0/CTR_KUBERNETES_HARDENING_GUIDANCE_1.2_20220829.PDF,Kubernetes YAML-like terms security recommendations and appendices
+50,Reports-Manuals,DOD DevSecOps Reference Design Multi-Cluster Kubernetes,50_dod_devsecops_multicluster_kubernetes.pdf,https://dodcio.defense.gov/Portals/0/Documents/Library/DevSecOpsRefDesign-Multi-ClusterKubernetes.pdf,Enterprise platform architecture diagrams and DevSecOps terminology

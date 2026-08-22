@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "production-rag-knowledge-platform"
+version = "0.1.0"
+description = "Phase 0-1 foundation for a production-oriented RAG knowledge platform"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "Fredrick Ritchie"}]
+dependencies = [
+  "pymupdf>=1.24,<2",
+  "pydantic>=2.7,<3",
+  "typer>=0.12,<1",
+  "rich>=13,<16",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+  "pytest-cov>=5,<8",
+  "ruff>=0.6,<1",
+]
+
+[project.scripts]
+ragctl = "rag_platform.cli:app"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+  "slow: tests that intentionally create large documents",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
