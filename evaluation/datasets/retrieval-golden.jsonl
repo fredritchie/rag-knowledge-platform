@@ -1,0 +1,2 @@
+# Replace these examples with questions whose expected documents exist in your indexed corpus.
+{"question":"What is zero trust?","expected_document":"NIST-SP-800-207","expected_pages":[4],"should_answer":true}
