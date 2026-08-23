@@ -1,8 +1,21 @@
 # Production RAG Knowledge Platform
 
-Phase 0 and Phase 1 implementation of a production-oriented RAG knowledge platform.
+Configurable, local-first implementation of a production-oriented RAG knowledge platform.
+It covers deterministic PDF ingestion, dense and hybrid retrieval, reranking, grounded Ollama
+generation, page-level citations, golden-dataset evaluation, and a developer search UI.
 
-This repository intentionally stops before embeddings, Qdrant, LLM generation, AWS, and Kubernetes. The goal of these phases is to establish the product architecture and prove that PDFs can be validated, extracted, cleaned, chunked, inspected, and lifecycle-managed deterministically.
+Detailed implementation and operating guides:
+
+- [Phase 1 — Development Dataset and PDF Processing Foundation](docs/phases/phase-1-development-dataset-pdf-processing/README.md)
+- [Phase 2 — Embeddings and Basic Vector Retrieval](docs/phases/phase-2-embeddings-vector-retrieval/README.md)
+- [Phase 3 — RAG Generation and Citations](docs/phases/phase-3-rag-generation-citations/README.md)
+- [Phase 4 — RAG Quality Engineering](docs/phases/phase-4-rag-quality-engineering/README.md)
+- [Phase 5 — Backend Application and PostgreSQL](docs/phases/phase-5-backend-postgresql/README.md)
+- [Phase 6 — Next.js Production Frontend](docs/phases/phase-6-nextjs-frontend/README.md)
+- [Phase 7 — Authentication, RBAC and Multi-Tenancy](docs/phases/phase-7-auth-rbac-multitenancy/README.md)
+- [Phase 8 — Document Lifecycle and Manual Upload](docs/phases/phase-8-document-lifecycle-upload/README.md)
+- [Phase 9 — Event-Driven S3 Ingestion](docs/phases/phase-9-event-driven-s3-ingestion/README.md)
+- [Phase 10 — Google Drive Integration](docs/phases/phase-10-google-drive-integration/README.md)
 
 ## What is implemented
 
@@ -30,6 +43,68 @@ This repository intentionally stops before embeddings, Qdrant, LLM generation, A
 - 50-PDF development corpus manifest and downloader.
 - Unit/integration/CLI tests.
 
+### Phase 2–4
+
+- BGE embeddings behind a provider interface and batched Qdrant indexing.
+- Tenant-filtered Qdrant payloads with document, page, version, model, and chunker metadata.
+- Dense search, local BM25, configurable weighted/RRF fusion, and cross-encoder reranking.
+- Versioned YAML prompts, context token budgeting, Ollama calls/streaming, and citations.
+- Persisted prompt/model/chunk/generation metadata for reproducibility.
+- Retrieval metrics: Hit@1, Hit@3, Hit@5, MRR, and latency percentiles.
+- RAG metrics: groundedness proxy, faithfulness proxy, citation correctness, rejection, latency.
+- FastAPI developer UI and JSON search/answer endpoints.
+
+### Phase 5–8
+
+- Modular versioned FastAPI application with structured errors, request IDs, OpenAPI, pagination,
+  filtering, sorting, rate-limit hooks, CORS, liveness, and dependency readiness.
+- Async SQLAlchemy application model and Alembic migrations for PostgreSQL.
+- Tenants, Cognito users/memberships, versioned documents and ACLs, jobs/events, chats/traces,
+  Drive sync state, audits, and model/prompt/embedding lineage.
+- Cognito RS256/JWKS verification and Admin/Editor/Viewer capability enforcement.
+- Tenant and document ACL filters applied inside Qdrant and SQL before retrieval or generation.
+- Encrypted direct-to-S3 upload authorization and safe replacement-version orchestration.
+- Separate ingestion and synchronization worker processes with row locking and retry state.
+- Next.js TypeScript application for login, dashboard, cited chat, documents, upload, pipeline
+  status, document details, and administration.
+
+### Phase 9–10
+
+- S3 EventBridge envelope validation, encrypted SQS consumption, durable PostgreSQL receipts,
+  duplicate suppression, retry-safe ACK behavior, DLQ health, alarm-ready Terraform, and a concrete
+  S3/checksum/parser/index processor.
+- Google Drive Changes API checkpoints, scheduled incremental paging, OAuth secret references,
+  CREATE/UPDATE/DELETE/MOVE/PERMISSION CHANGE handling, canonical S3 publication, permission sync,
+  and audited admin controls in FastAPI and Next.js.
+
+### Run the application stack
+
+Configure Cognito and S3 placeholders in `config/rag.yaml` or environment variables, then:
+
+```bash
+make services-up
+make migrate
+rag-api
+```
+
+In separate terminals, after configuring the Phase 9 queue and Phase 10 Drive credentials:
+
+```bash
+rag-s3-event-worker
+rag-sync-worker
+```
+
+Start the frontend:
+
+```bash
+make frontend-install
+cp apps/web/.env.example apps/web/.env.local
+make frontend-dev
+```
+
+The production API is available on `http://127.0.0.1:8080`, OpenAPI on `/docs`, and Next.js on
+`http://localhost:3000`. The legacy developer search UI remains on its separately configured port.
+
 ## Quick start
 
 ```bash
@@ -42,6 +117,69 @@ Or install directly:
 ```bash
 python3 -m pip install -e '.[dev]'
 ```
+
+Install the local embedding and reranking models, then start Qdrant and Ollama:
+
+```bash
+make install-ml
+make services-up
+docker compose exec ollama ollama pull llama3.2:3b
+```
+
+All runtime choices live in `config/rag.yaml`. Override any value without editing Python by
+using double-underscore environment paths, for example:
+
+```bash
+export RAG__RETRIEVAL__TOP_K=10
+export RAG__RETRIEVAL__MODE=hybrid
+export RAG__GENERATION__MODEL=llama3.2:3b
+ragctl config-show
+```
+
+### Index and search
+
+Ingestion uses the configured 500-character chunks with 75-character overlap by default:
+
+```bash
+ragctl ingest ./document.pdf
+ragctl index --all
+ragctl search "What is zero trust?"
+ragctl search "RFC-9110 status code semantics" --mode hybrid_rerank --json
+```
+
+Before permanently removing an indexed document, remove its tenant-scoped vectors and then
+delete its catalog/file record:
+
+```bash
+ragctl deindex doc_xxxxxxxxxxxxxxxxxxxx
+ragctl delete doc_xxxxxxxxxxxxxxxxxxxx
+```
+
+Generate a grounded answer with page-level source metadata:
+
+```bash
+ragctl ask "What is zero trust?"
+```
+
+Run the temporary developer UI at <http://127.0.0.1:8000>:
+
+```bash
+ragctl serve
+```
+
+### Evaluate retrieval and RAG
+
+Replace the example rows under `evaluation/datasets/` with known questions from your corpus,
+then run:
+
+```bash
+ragctl evaluate retrieval
+ragctl evaluate rag
+```
+
+JSON reports are written to `evaluation/reports/`. Compare configurations by overriding
+`retrieval.mode`, chunking values, and `top_k`; re-ingest and re-index whenever chunking or the
+embedding model changes. A different embedding dimension should use a new Qdrant collection.
 
 ### Validate a PDF
 
@@ -143,13 +281,15 @@ Deletion:
 DELETING -> DELETED
 ```
 
-For local Phase 1 ingestion, the path is:
+For ingestion without immediate indexing, the path is:
 
 ```text
 RECEIVED -> PARSING -> CHUNKING -> VALIDATING -> ACTIVE
 ```
 
-`ACTIVE` in Phase 1 means the document has passed local parsing/chunk validation and is available to the development catalog. Vector indexing begins in Phase 2.
+`ACTIVE` means the document passed local parsing/chunk validation and is available to index.
+`ragctl index` performs embedding and idempotent vector upserts separately so corpus rebuilds are
+explicit and measurable.
 
 ## Failure classification
 

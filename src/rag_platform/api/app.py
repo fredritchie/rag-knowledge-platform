@@ -26,6 +26,7 @@ from rag_platform.api.routers import (
     generation,
     health,
     ingestion,
+    integrations,
     retrieval,
     tenants,
     users,
@@ -71,6 +72,7 @@ def create_application(
             {"name": "chat", "description": "Persistent conversations and traces."},
             {"name": "admin", "description": "Platform administration."},
             {"name": "audit", "description": "Tenant audit trail."},
+            {"name": "integrations", "description": "Drive and queue administration."},
         ],
         lifespan=lifespan,
     )
@@ -170,6 +172,7 @@ def create_application(
         chat.router,
         admin.router,
         audit.router,
+        integrations.router,
     ):
         app.include_router(route)
     return app
