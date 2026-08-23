@@ -23,6 +23,7 @@ class ValidationIssue(BaseModel):
 
 class DocumentRecord(BaseModel):
     document_id: str
+    tenant_id: str = "default"
     filename: str
     source: str = "manual"
     source_file_id: str | None = None
@@ -48,6 +49,7 @@ class DocumentRecord(BaseModel):
 
 class ChunkRecord(BaseModel):
     chunk_id: str
+    tenant_id: str = "default"
     document_id: str
     filename: str
     page: int
@@ -61,3 +63,49 @@ class ChunkRecord(BaseModel):
     char_start: int
     char_end: int
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class SearchResult(BaseModel):
+    chunk_id: str
+    tenant_id: str
+    document_id: str
+    document_version: int
+    source: str
+    page: int
+    filename: str
+    chunk_index: int
+    embedding_model_version: str
+    chunker_version: str
+    text: str
+    score: float
+    dense_score: float | None = None
+    lexical_score: float | None = None
+    reranker_score: float | None = None
+
+
+class Citation(BaseModel):
+    document_id: str
+    filename: str
+    page: int
+    chunk_id: str
+    score: float
+
+
+class RAGResponse(BaseModel):
+    answer: str
+    sources: list[Citation]
+    model: str
+    prompt_version: str
+    latency_ms: float
+    retrieval_latency_ms: float
+    generation_latency_ms: float
+    retrieved_chunk_ids: list[str]
+    generation_parameters: dict[str, Any]
+
+
+class RetrievalEvaluationItem(BaseModel):
+    question: str
+    expected_document: str
+    expected_pages: list[int] = Field(default_factory=list)
+    expected_answer: str | None = None
+    should_answer: bool = True

@@ -13,3 +13,6 @@ rag_pdf_corpus/
 *.part
 .DS_Store
 .env
+node_modules/
+.next/
+.terraform/

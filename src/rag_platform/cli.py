@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from rag_platform.config import Settings
+from rag_platform.config import Settings, load_settings
 from rag_platform.domain.states import IssueSeverity
 from rag_platform.ingestion.service import (
     DocumentNotFoundError,
@@ -19,14 +19,19 @@ from rag_platform.ingestion.service import (
 
 app = typer.Typer(
     name="ragctl",
-    help="Developer CLI for Phase 0/1 document ingestion and inspection.",
+    help="Developer CLI for ingestion, retrieval, evaluation, and grounded generation.",
     no_args_is_help=True,
 )
 console = Console()
 
 
-def _service(data_dir: Path) -> IngestionService:
-    return IngestionService(Settings(data_dir=data_dir))
+def _service(data_dir: Path | None, config: Path) -> IngestionService:
+    return IngestionService(_runtime_settings(config, data_dir))
+
+
+def _runtime_settings(config: Path, data_dir: Path | None) -> Settings:
+    settings = load_settings(config)
+    return settings.model_copy(update={"data_dir": data_dir}) if data_dir else settings
 
 
 def _issue_table(issues: list[object]) -> Table:
@@ -42,11 +47,12 @@ def _issue_table(issues: list[object]) -> Table:
 @app.command()
 def validate(
     path: Annotated[Path, typer.Argument(exists=False, dir_okay=False)],
-    data_dir: Annotated[Path, typer.Option("--data-dir")] = Path(".rag_data"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Validate a PDF without adding it to the local catalog."""
-    service = _service(data_dir)
+    service = _service(data_dir, config)
     issues, details = service.validate(path.expanduser().resolve())
     payload = {
         "path": str(path),
@@ -74,11 +80,12 @@ def ingest(
     document_version: Annotated[int, typer.Option("--document-version", min=1)] = 1,
     chunk_size: Annotated[int | None, typer.Option("--chunk-size", min=100)] = None,
     chunk_overlap: Annotated[int | None, typer.Option("--chunk-overlap", min=0)] = None,
-    data_dir: Annotated[Path, typer.Option("--data-dir")] = Path(".rag_data"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Validate, extract, clean, chunk, and persist one PDF."""
-    service = _service(data_dir)
+    service = _service(data_dir, config)
     try:
         result = service.ingest(
             path,
@@ -122,10 +129,11 @@ def ingest_dir(
     directory: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
     limit: Annotated[int | None, typer.Option("--limit", min=1)] = None,
     source: Annotated[str, typer.Option("--source")] = "manual",
-    data_dir: Annotated[Path, typer.Option("--data-dir")] = Path(".rag_data"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
 ) -> None:
     """Recursively ingest PDFs from a directory; useful for the 10 -> 20 -> 50 corpus rollout."""
-    service = _service(data_dir)
+    service = _service(data_dir, config)
     pdfs = sorted(directory.rglob("*.pdf"))
     if limit is not None:
         pdfs = pdfs[:limit]
@@ -160,11 +168,15 @@ def ingest_dir(
 
 @app.command("list")
 def list_documents(
-    data_dir: Annotated[Path, typer.Option("--data-dir")] = Path(".rag_data"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
     include_deleted: Annotated[bool, typer.Option("--all")] = False,
 ) -> None:
     """List documents in the local Phase 1 catalog."""
-    documents = _service(data_dir).catalog.list_documents(include_deleted=include_deleted)
+    service = _service(data_dir, config)
+    documents = service.catalog.list_documents(
+        tenant_id=service.settings.tenant_id, include_deleted=include_deleted
+    )
     table = Table(title="Documents")
     table.add_column("Document ID")
     table.add_column("Status")
@@ -185,11 +197,12 @@ def list_documents(
 @app.command()
 def inspect(
     document_id: Annotated[str, typer.Argument()],
-    data_dir: Annotated[Path, typer.Option("--data-dir")] = Path(".rag_data"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Inspect persisted document metadata, status, issues, and chunk count."""
-    service = _service(data_dir)
+    service = _service(data_dir, config)
     try:
         document, issues, chunk_count, stored_path = service.inspect(document_id)
     except DocumentNotFoundError as exc:
@@ -222,12 +235,14 @@ def chunks(
     page: Annotated[int | None, typer.Option("--page", min=1)] = None,
     limit: Annotated[int, typer.Option("--limit", min=1)] = 20,
     full: Annotated[bool, typer.Option("--full")] = False,
-    data_dir: Annotated[Path, typer.Option("--data-dir")] = Path(".rag_data"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Show chunks for an ingested document."""
-    service = _service(data_dir)
-    if not service.catalog.get_document(document_id):
+    service = _service(data_dir, config)
+    document = service.catalog.get_document(document_id)
+    if not document or document.tenant_id != service.settings.tenant_id:
         console.print(f"[red]Document not found:[/red] {document_id}")
         raise typer.Exit(4)
     records = service.catalog.get_chunks(document_id, page=page, limit=limit)
@@ -252,16 +267,171 @@ def chunks(
 def delete(
     document_id: Annotated[str, typer.Argument()],
     keep_file: Annotated[bool, typer.Option("--keep-file")] = False,
-    data_dir: Annotated[Path, typer.Option("--data-dir")] = Path(".rag_data"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
 ) -> None:
     """Soft-delete document metadata and remove chunks; purge the stored PDF by default."""
-    service = _service(data_dir)
+    service = _service(data_dir, config)
     try:
         document = service.delete(document_id, purge_file=not keep_file)
     except DocumentNotFoundError as exc:
         console.print(f"[red]Document not found:[/red] {document_id}")
         raise typer.Exit(4) from exc
     console.print(f"[green]Deleted[/green] {document.document_id} -> {document.status.value}")
+
+
+@app.command("config-show")
+def config_show(
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
+) -> None:
+    """Print the effective YAML + environment configuration."""
+    console.print_json(json.dumps(load_settings(config).model_dump(mode="json")))
+
+
+@app.command()
+def index(
+    document_id: Annotated[str | None, typer.Argument()] = None,
+    all_documents: Annotated[bool, typer.Option("--all")] = False,
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Embed chunks and upsert their vectors and metadata into Qdrant."""
+    if not all_documents and not document_id:
+        raise typer.BadParameter("Provide DOCUMENT_ID or --all")
+    from rag_platform.retrieval.service import RetrievalService
+
+    retrieval = RetrievalService(_runtime_settings(config, data_dir))
+    if all_documents:
+        document_count, chunk_count = retrieval.index_all()
+    else:
+        document_count, chunk_count = 1, retrieval.index_document(document_id or "")
+    console.print(f"[green]Indexed[/green] {chunk_count} chunks from {document_count} document(s)")
+
+
+@app.command()
+def deindex(
+    document_id: Annotated[str, typer.Argument()],
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
+) -> None:
+    """Delete one tenant-scoped document's vectors from Qdrant."""
+    from rag_platform.retrieval.vector_store import QdrantVectorStore
+
+    settings = load_settings(config)
+    QdrantVectorStore(settings.qdrant).delete_document(document_id, settings.tenant_id)
+    console.print(f"[green]De-indexed[/green] {document_id}")
+
+
+@app.command()
+def search(
+    query: Annotated[str, typer.Argument()],
+    top_k: Annotated[int | None, typer.Option("--top-k", min=1)] = None,
+    mode: Annotated[str | None, typer.Option("--mode")] = None,
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Search indexed chunks with dense, hybrid, or reranked retrieval."""
+    from rag_platform.retrieval.service import RetrievalService
+
+    results, latency = RetrievalService(_runtime_settings(config, data_dir)).search(
+        query, top_k=top_k, mode=mode
+    )
+    if json_output:
+        console.print_json(
+            json.dumps(
+                {
+                    "query": query,
+                    "latency_ms": latency,
+                    "results": [r.model_dump() for r in results],
+                }
+            )
+        )
+        return
+    table = Table(title=f'Results for: "{query}" ({latency:.1f} ms)')
+    table.add_column("#", justify="right")
+    table.add_column("Document")
+    table.add_column("Page", justify="right")
+    table.add_column("Score", justify="right")
+    table.add_column("Text")
+    for rank, result in enumerate(results, 1):
+        table.add_row(
+            str(rank),
+            result.filename,
+            str(result.page),
+            f"{result.score:.4f}",
+            result.text[:160] + ("..." if len(result.text) > 160 else ""),
+        )
+    console.print(table)
+
+
+@app.command()
+def ask(
+    question: Annotated[str, typer.Argument()],
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Retrieve context and generate a grounded Ollama answer with citations."""
+    from rag_platform.generation.service import GenerationService
+
+    response = GenerationService(_runtime_settings(config, data_dir)).answer(question)
+    if json_output:
+        console.print_json(response.model_dump_json())
+        return
+    console.print(response.answer)
+    if response.sources:
+        table = Table(title="Sources")
+        table.add_column("Document")
+        table.add_column("Page")
+        table.add_column("Chunk")
+        table.add_column("Score")
+        for source in response.sources:
+            table.add_row(source.filename, str(source.page), source.chunk_id, f"{source.score:.4f}")
+        console.print(table)
+
+
+@app.command()
+def evaluate(
+    kind: Annotated[str, typer.Argument()] = "retrieval",
+    dataset: Annotated[Path | None, typer.Option("--dataset")] = None,
+    report_name: Annotated[str | None, typer.Option("--report-name")] = None,
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Measure retrieval or RAG quality against a JSONL golden dataset."""
+    from rag_platform.evaluation.service import EvaluationService
+    from rag_platform.generation.service import GenerationService
+    from rag_platform.retrieval.service import RetrievalService
+
+    settings = _runtime_settings(config, data_dir)
+    retrieval = RetrievalService(settings)
+    if kind == "retrieval":
+        evaluator = EvaluationService(settings, retrieval)
+        report = evaluator.evaluate_retrieval(dataset)
+    elif kind == "rag":
+        generation = GenerationService(settings, retrieval=retrieval)
+        evaluator = EvaluationService(settings, retrieval, generation)
+        report = evaluator.evaluate_rag(dataset)
+    else:
+        raise typer.BadParameter("kind must be 'retrieval' or 'rag'")
+    target = evaluator.write_report(report_name or kind, report)
+    console.print_json(json.dumps(report))
+    console.print(f"Report: {target}")
+
+
+@app.command()
+def serve(
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8000,
+    config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Run the temporary developer search and RAG web interface."""
+    import uvicorn
+
+    from rag_platform.web import create_app
+
+    uvicorn.run(create_app(_runtime_settings(config, data_dir)), host=host, port=port)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,153 @@
+data_dir: .rag_data
+tenant_id: default
+max_pages: 1000
+min_avg_chars_per_page: 40
+max_replacement_char_ratio: 0.02
+
+embedding:
+  provider: sentence_transformers
+  model: BAAI/bge-small-en-v1.5
+  model_version: bge-small-en-v1.5
+  batch_size: 32
+  dimension: 384
+  normalize: true
+  device: cpu
+  query_prefix: "Represent this sentence for searching relevant passages: "
+  document_prefix: ""
+
+chunking:
+  size: 500
+  overlap: 75
+  version: paragraph-char-v2
+
+qdrant:
+  url: http://localhost:6333
+  api_key: null
+  collection: rag_chunks
+  timeout_seconds: 10
+  prefer_grpc: false
+
+retrieval:
+  mode: hybrid_rerank
+  top_k: 5
+  candidate_k: 20
+  similarity_threshold: 0.65
+  dense_weight: 0.65
+  lexical_weight: 0.35
+  fusion: rrf
+  rrf_k: 60
+
+reranker:
+  enabled: true
+  provider: sentence_transformers
+  model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  model_version: ms-marco-MiniLM-L-6-v2
+  batch_size: 16
+  device: cpu
+
+generation:
+  provider: ollama
+  base_url: http://localhost:11434
+  model: llama3.2:3b
+  model_version: llama3.2:3b
+  prompt_version: rag-v1
+  prompt_dir: prompts/rag
+  max_context_tokens: 4096
+  max_output_tokens: 512
+  temperature: 0.0
+  timeout_seconds: 120
+  insufficient_context_message: >-
+    The available documents do not contain enough information to answer this question.
+
+evaluation:
+  retrieval_dataset: evaluation/datasets/retrieval-golden.jsonl
+  rag_dataset: evaluation/datasets/rag-golden.jsonl
+  adversarial_dataset: evaluation/datasets/adversarial.jsonl
+  report_dir: evaluation/reports
+  latency_percentiles: [50, 95]
+
+database:
+  url: postgresql+asyncpg://rag:rag@localhost:5432/rag_platform
+  echo: false
+  pool_size: 10
+  max_overflow: 20
+  pool_timeout_seconds: 30
+
+api:
+  title: RAG Knowledge Platform API
+  version: 0.2.0
+  host: 127.0.0.1
+  port: 8080
+  cors_origins: [http://localhost:3000]
+  request_id_header: X-Request-ID
+  default_page_size: 25
+  max_page_size: 100
+  rate_limit_enabled: true
+  rate_limit_requests: 120
+  rate_limit_window_seconds: 60
+
+auth:
+  enabled: true
+  issuer: https://cognito-idp.us-east-1.amazonaws.com/replace-me
+  audience: replace-me-client-id
+  jwks_url: null
+  algorithms: [RS256]
+  jwks_cache_seconds: 3600
+  clock_skew_seconds: 30
+  tenant_claim: custom:tenant_id
+  role_claim: cognito:groups
+  group_claim: custom:groups
+
+storage:
+  provider: s3
+  bucket: replace-me-rag-documents
+  region: us-east-1
+  endpoint_url: null
+  upload_expiry_seconds: 900
+  server_side_encryption: AES256
+  kms_key_id: null
+
+health:
+  check_database: true
+  check_qdrant: true
+  check_ollama: false
+  timeout_seconds: 2
+
+worker:
+  poll_interval_seconds: 2
+  batch_size: 5
+  max_attempts: 3
+  heartbeat_seconds: 30
+
+event_ingestion:
+  enabled: false
+  queue_url: ""
+  dlq_url: ""
+  wait_time_seconds: 20
+  visibility_timeout_seconds: 900
+  visibility_heartbeat_seconds: 120
+  max_messages: 5
+  max_receive_count: 5
+  accepted_event_types: [Object Created, Object Deleted]
+  accepted_prefix: tenants/
+  alarm_on_dlq_messages: true
+
+drive:
+  enabled: false
+  sync_interval_seconds: 300
+  page_size: 100
+  api_base_url: https://www.googleapis.com/drive/v3
+  upload_base_url: https://www.googleapis.com/upload/drive/v3
+  oauth_token_url: https://oauth2.googleapis.com/token
+  secrets_region: null
+  canonical_prefix: tenants/{tenant_id}/drive/{connection_id}
+  include_shared_drives: true
+  allowed_mime_types:
+    - application/pdf
+    - application/vnd.google-apps.document
+    - application/vnd.google-apps.presentation
+    - application/vnd.google-apps.spreadsheet
+  export_mime_types:
+    application/vnd.google-apps.document: application/pdf
+    application/vnd.google-apps.presentation: application/pdf
+    application/vnd.google-apps.spreadsheet: application/pdf
