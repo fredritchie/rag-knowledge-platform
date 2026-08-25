@@ -426,7 +426,7 @@ def serve(
     config: Annotated[Path, typer.Option("--config")] = Path("config/rag.yaml"),
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
 ) -> None:
-    """Run the temporary developer search and RAG web interface."""
+    """Run the temporary developer search web interface."""
     import uvicorn
 
     from rag_platform.web import create_app
