@@ -191,8 +191,19 @@ class IngestionReceipt(Base, TimestampMixin):
 
     __tablename__ = "ingestion_receipts"
     __table_args__ = (
-        UniqueConstraint("provider", "event_id"),
-        UniqueConstraint("provider", "bucket", "object_key", "object_version", "event_type"),
+        UniqueConstraint(
+            "provider",
+            "event_id",
+            name="uq_ingestion_receipts_provider_event_id",
+        ),
+        UniqueConstraint(
+            "provider",
+            "bucket",
+            "object_key",
+            "object_version",
+            "event_type",
+            name="uq_ingestion_receipts_object_event",
+        ),
     )
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("rcp"))
     tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
