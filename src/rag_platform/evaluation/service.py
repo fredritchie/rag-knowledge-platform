@@ -109,9 +109,8 @@ class EvaluationService:
                 and (not item.expected_pages or source.page in item.expected_pages)
                 for source in response.sources
             )
-            citation_scores.append(
-                float(cited_expected) if item.should_answer else float(not response.sources)
-            )
+            citation_correct = cited_expected if item.should_answer else not response.sources
+            citation_scores.append(float(citation_correct))
             rejected = response.answer == self.settings.generation.insufficient_context_message
             if not item.should_answer:
                 rejection_scores.append(float(rejected))
@@ -141,7 +140,7 @@ class EvaluationService:
                     "question": item.question,
                     "should_answer": item.should_answer,
                     "rejected": rejected,
-                    "citation_correct": cited_expected,
+                    "citation_correct": citation_correct,
                     "faithfulness": faithfulness,
                     "answer_relevance": answer_relevance,
                     "latency_ms": response.latency_ms,

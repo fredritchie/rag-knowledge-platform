@@ -47,6 +47,12 @@ class GenerationService:
             generation_started = perf_counter()
             answer = self.llm.generate(system=template.system, prompt=prompt)
             generation_ms = (perf_counter() - generation_started) * 1000
+            
+        answer = self.llm.generate(system=template.system, prompt=prompt)
+        generation_ms = (perf_counter() - generation_started) * 1000
+
+        if answer == config.insufficient_context_message:
+            included = []    
 
         elapsed_ms = (perf_counter() - started) * 1000
         response = RAGResponse(
