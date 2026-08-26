@@ -1,32 +1,37 @@
-# Phase 5 — Backend Application and PostgreSQL
+# Phase 5 — PostgreSQL Persistence Foundation
 
 ## Objective
 
-Turn the local prototype into one modular FastAPI application backed by PostgreSQL, while keeping
-ingestion and source synchronization as separately scalable worker processes. This phase does not
-split the application into premature network services.
+Introduce the PostgreSQL application schema, async SQLAlchemy session management, and repeatable
+Alembic migrations. Phase 5 establishes persistence boundaries for later API and worker phases; it
+does not yet ship those process entry points.
 
-## Runtime architecture
+## Implemented runtime boundary
 
 ```text
-FastAPI application
-├── auth and request context
-├── tenant and user membership
-├── documents, versions, ACLs and S3 upload authorization
-├── ingestion jobs and events
-├── ACL-scoped retrieval and generation
-├── persistent chat and answer traces
-├── admin dashboard
-└── audit events
-
-Separate processes
-├── rag-ingestion-worker
-└── rag-sync-worker
+Alembic migration command
+        │
+        ▼
+PostgreSQL application schema
+        ▲
+        │
+SQLAlchemy models and async session factory
 ```
 
-The Phase 1 SQLite catalog remains the local PDF-processing catalog. PostgreSQL is the application
-system of record for identity, permissions, logical documents and versions, jobs, conversations,
-sync state, audits, and model/prompt/embedding lineage.
+The Phase 1 SQLite catalog remains the local PDF-processing catalog. PostgreSQL becomes the
+application system of record for identity, permissions, logical documents and versions, jobs,
+conversations, sync state, audits, and model/prompt/embedding lineage.
+
+API and worker implementations arrive on later branches:
+
+| Runtime | First implemented phase |
+|---|---|
+| FastAPI application | Phase 8 |
+| Ingestion worker | Phase 8 |
+| S3 event worker | Phase 9 |
+| Source synchronization worker | Phase 10 |
+
+Phase 5 must not advertise or invoke these commands before their importable modules exist.
 
 ## PostgreSQL schema
 
@@ -34,120 +39,115 @@ The SQLAlchemy models define:
 
 - `tenants`, `users`, `tenant_memberships`
 - `documents`, `document_versions`, `document_permissions`, `document_sources`
-- `ingestion_jobs`, `ingestion_events`
+- `ingestion_jobs`, `ingestion_events`, `ingestion_receipts`
 - `chat_sessions`, `chat_messages`, `answer_traces`
-- `drive_connections`, `drive_sync_state`
+- `drive_connections`, `drive_sync_state`, `drive_checkpoints`, `drive_change_events`
 - `audit_events`
 - `model_versions`, `prompt_versions`, `embedding_versions`
 
-All tenant-owned query paths include tenant predicates. IDs are opaque prefixed UUID4 strings.
-JSON columns retain groups, provider metadata, traces, and version parameters. Composite uniqueness
-constraints protect tenant checksum identity, document version numbers, memberships, permissions,
-and version registries.
+IDs are opaque prefixed UUID4 strings. JSON columns retain groups, provider metadata, traces, and
+version parameters. Composite uniqueness constraints protect tenant checksum identity, document
+version numbers, memberships, permissions, event receipts, and version registries.
+
+Every explicitly named PostgreSQL relation-like object must have a unique name. This includes
+tables, indexes, primary keys, and unique constraints. Two ingestion receipt constraints begin
+with `provider`, so they use explicit names rather than the default first-column naming rule.
 
 ## Configuration
 
-Application settings live beside existing RAG settings in `config/rag.yaml`:
+The database settings live in `config/rag.yaml`:
 
-- `database`: async SQLAlchemy URL and pool behavior.
-- `api`: bind address, CORS, paging, request ID and rate-limit hook.
-- `auth`: Cognito issuer/audience/JWKS and claim mapping.
-- `storage`: S3 bucket, region, endpoint, expiry, and encryption.
-- `health`: critical readiness checks and timeouts.
-- `worker`: polling, claim batch, attempts, and heartbeat policy.
+```yaml
+database:
+  url: postgresql+asyncpg://rag:rag@localhost:5432/rag_platform
+  echo: false
+  pool_size: 10
+  max_overflow: 20
+  pool_timeout_seconds: 30
+```
 
-Every value supports `RAG__SECTION__FIELD` environment overrides.
+Every value supports a `RAG__DATABASE__FIELD` environment override. For example:
+
+```bash
+export RAG__DATABASE__URL=postgresql+asyncpg://rag:rag@localhost:5432/rag_platform
+```
 
 ## Migrations
 
-Alembic owns the application schema:
+Start PostgreSQL and apply the committed migration chain:
 
 ```bash
 make services-up
 make migrate
+alembic current
 ```
 
-The async migration environment reads the effective centralized database URL. The initial revision
-is `20260823_0001`. Generate future revisions with:
+The Phase 5 head is `20260823_0001`.
+
+Generate a new revision only after intentionally changing the SQLAlchemy schema:
 
 ```bash
-alembic revision --autogenerate -m "describe change"
+alembic revision --autogenerate -m "add <specific schema change>"
+```
+
+Always inspect the generated file before applying it. Do not run the placeholder command merely to
+verify Phase 5: Alembic creates a new revision even when autogenerate finds no operations.
+
+Apply an intentionally reviewed revision with:
+
+```bash
 alembic upgrade head
 ```
 
-Never replace a production schema by calling `create_all`; application startup deliberately does
-not mutate schema.
-
-## FastAPI features
-
-- Modular routers under `src/rag_platform/api/routers`.
-- Pydantic request/response schemas and generated OpenAPI at `/docs` and `/openapi.json`.
-- Dependency injection for identity and capability enforcement.
-- Structured errors containing code, message, request ID, and details.
-- Caller-supplied or generated `X-Request-ID` propagated in responses and audit events.
-- Limit/offset pagination, filtering, allow-listed sorting, and deterministic tie-breaking.
-- In-memory fixed-window rate-limit hook with response headers. Replace with a distributed adapter
-  before horizontal scaling.
-- CORS allow-list configuration.
-- Async session per request/task; sessions are never shared across concurrent tasks.
-
-## API modules
-
-| Module | Prefix |
-|---|---|
-| Auth | `/api/v1/auth` |
-| Tenant | `/api/v1/tenants` |
-| Users | `/api/v1/users` |
-| Documents | `/api/v1/documents` |
-| Ingestion | `/api/v1/ingestion` |
-| Retrieval | `/api/v1/search` |
-| Generation | `/api/v1/generation` |
-| Chat | `/api/v1/chat` |
-| Admin | `/api/v1/admin` |
-| Audit | `/api/v1/audit` |
-
-## Health semantics
-
-`GET /live` checks only that the process can answer. It does not call PostgreSQL, Qdrant, Ollama,
-S3, or Cognito. Dependency outages therefore do not cause Kubernetes to restart a healthy process.
-
-`GET /ready` checks only dependencies enabled under `health`. It returns 503 and per-dependency
-status when a critical dependency is unavailable. Ollama is disabled from readiness by default
-because deployments may choose degradation rather than removing all API capacity.
-
-## Workers
-
-Workers claim rows with `FOR UPDATE SKIP LOCKED`, bounded batches, attempt counters, worker IDs,
-and persisted events. Processor and Drive adapters are protocols. The default command uses an
-explicit unconfigured adapter and fails jobs visibly; deployments must inject the concrete
-S3/parser/index or Drive connector implementation rather than silently reporting success.
+Application startup must not create or mutate the production schema. Alembic owns schema changes.
 
 ## Run
+
+The complete Phase 5 runtime procedure is:
 
 ```bash
 make services-up
 make migrate
-rag-api
-rag-ingestion-worker
-rag-sync-worker
+alembic heads
+alembic current
+docker compose ps
 ```
 
-API bind defaults to `127.0.0.1:8080`. Configure a production reverse proxy/TLS boundary.
+`alembic heads` and `alembic current` must both report `20260823_0001`. Compose must report healthy
+or running PostgreSQL, Qdrant, and Ollama containers.
+
+Confirm the database revision directly when needed:
+
+```bash
+docker compose exec postgres \
+  psql -U rag -d rag_platform \
+  -c "SELECT version_num FROM alembic_version;"
+```
+
+Do not run `rag-api`, `rag-ingestion-worker`, `rag-s3-event-worker`, or `rag-sync-worker` on this
+branch. Their packages are not part of Phase 5.
 
 ## Verification
 
-Tests use async SQLite only as a disposable PostgreSQL-compatible test adapter. They validate
-schema creation, health semantics, OpenAPI, request IDs, structured auth rejection, ACL filtering,
-upload/version behavior, and worker activation. The Alembic head is also executable against the
-test adapter. Production acceptance still requires a real PostgreSQL migration and concurrency run.
+The Phase 5 regression test verifies that PostgreSQL relation-like names generated from the
+metadata are unique. This prevents two unique constraints from producing the same backing-index
+name during `CREATE TABLE`.
+
+Production acceptance still requires applying the committed migration against real PostgreSQL:
+
+```bash
+pytest tests/test_phase5_schema.py
+make migrate
+```
 
 ## Exit checklist
 
-- [ ] PostgreSQL starts and Alembic reaches head.
-- [ ] OpenAPI contains every modular resource boundary.
-- [ ] Request IDs appear in successful and error responses.
-- [ ] `/live` remains healthy during dependency outages.
-- [ ] `/ready` fails when configured critical dependencies fail.
-- [ ] Pagination, filtering, and sorting are bounded.
-- [ ] Worker claims cannot be processed twice concurrently.
-- [ ] Application and worker processes shut down/dispose pools cleanly.
+- [ ] `docker compose config --services` lists PostgreSQL, Qdrant, and Ollama.
+- [ ] PostgreSQL reports that it is accepting connections.
+- [ ] Metadata contains no duplicate relation-like names.
+- [ ] The committed migration applies successfully to PostgreSQL.
+- [ ] `alembic heads` reports only `20260823_0001`.
+- [ ] `alembic current` reports `20260823_0001 (head)`.
+- [ ] The `alembic_version` table contains `20260823_0001`.
+- [ ] No untracked placeholder migrations remain under `migrations/versions/`.
+- [ ] The async database engine and session factory dispose connections cleanly.

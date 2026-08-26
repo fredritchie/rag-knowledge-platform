@@ -39,10 +39,6 @@ dev = [
 
 [project.scripts]
 ragctl = "rag_platform.cli:app"
-rag-api = "rag_platform.api.main:run"
-rag-ingestion-worker = "rag_platform.workers.ingestion:run"
-rag-sync-worker = "rag_platform.workers.sync:run"
-rag-s3-event-worker = "rag_platform.workers.s3_events:run"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

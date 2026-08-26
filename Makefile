@@ -1,4 +1,4 @@
-.PHONY: install install-ml migrate api event-worker sync-worker frontend-install frontend-dev test test-all lint format check corpus services-up services-down clean
+.PHONY: install install-ml migrate frontend-install frontend-dev test test-all lint format check corpus services-up services-down clean
 
 install:
 	python3 -m pip install -e '.[dev]'
@@ -8,15 +8,6 @@ install-ml:
 
 migrate:
 	alembic upgrade head
-
-api:
-	rag-api
-
-event-worker:
-	rag-s3-event-worker
-
-sync-worker:
-	rag-sync-worker
 
 frontend-install:
 	cd apps/web && npm install
