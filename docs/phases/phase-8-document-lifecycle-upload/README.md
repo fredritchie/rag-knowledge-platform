@@ -1,5 +1,8 @@
 # Phase 8 — Document Lifecycle and Manual Upload
 
+For the complete EC2/Terraform deployment, validation, and troubleshooting procedure, see the
+[Phase 8 exit-criteria runbook](EXIT_CRITERIA_RUNBOOK.md).
+
 > Phase 9 deployments set `event_ingestion.enabled=true`. In that mode, upload completion leaves
 > the job in `WAITING_EVENT`; the canonical S3 EventBridge/SQS message, not the browser callback,
 > authorizes processing. See the Phase 9 operating guide for the durable path.
