@@ -1,5 +1,8 @@
 # Phase 9 — Event-Driven S3 Ingestion
 
+For the complete EC2/Terraform deployment, validation, and troubleshooting procedure, see the
+[Phase 9 exit-criteria runbook](EXIT_CRITERIA_RUNBOOK.md).
+
 ## Outcome
 
 Phase 9 replaces the upload-complete request as the source of truth with a durable S3 event path:
