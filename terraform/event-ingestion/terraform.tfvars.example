@@ -1,8 +1,8 @@
 aws_region       = "ap-south-1"
-name             = "replace-with-a-unique-rag-ingestion-name"
-bucket_name      = "replace-with-your-phase-8-document-bucket"
-bucket_arn       = "arn:aws:s3:::replace-with-your-phase-8-document-bucket"
-worker_role_name = "replace-with-your-phase-8-document-app-role"
+name             = "fred-rag-unique-event-12345"
+bucket_name      = "fred-rag-unique-bucket-12345"
+bucket_arn       = "arn:aws:s3:::fred-rag-unique-bucket-12345"
+worker_role_name = "fred-rag-uniqie-bucket-12345-document-app"
 
 # Optional: provide an SNS topic ARN to receive the DLQ alarm.
 alarm_actions = []
