@@ -164,6 +164,12 @@ data "aws_iam_policy_document" "worker" {
     actions   = ["s3:GetObject", "s3:GetObjectVersion", "s3:PutObject"]
     resources = ["${var.bucket_arn}/*"]
   }
+  statement {
+    # SQS calls KMS on behalf of the worker when it receives encrypted event
+    # messages. Restrict decrypt/data-key access to this module's queue key.
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = [aws_kms_key.sqs.arn]
+  }
 }
 
 resource "aws_iam_policy" "worker" {
