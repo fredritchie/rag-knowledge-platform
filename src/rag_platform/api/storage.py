@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import boto3
+from botocore.config import Config
 
 from rag_platform.config import StorageSettings
 
@@ -16,8 +17,15 @@ class S3Storage:
     def client(self):
         # Credential discovery is intentionally deferred so S3 outages do not prevent liveness.
         if self._client is None:
+            # A global S3 endpoint redirects POST requests for non-us-east-1 buckets.
+            # Browsers cannot follow that redirect for a cross-origin multipart upload,
+            # so generate presigned forms against the bucket's regional endpoint.
+            endpoint_url = self.config.endpoint_url or f"https://s3.{self.config.region}.amazonaws.com"
             self._client = boto3.client(
-                "s3", region_name=self.config.region, endpoint_url=self.config.endpoint_url
+                "s3",
+                region_name=self.config.region,
+                endpoint_url=endpoint_url,
+                config=Config(s3={"addressing_style": "virtual"}),
             )
         return self._client
 
