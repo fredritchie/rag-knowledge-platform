@@ -16,3 +16,4 @@ rag_pdf_corpus/
 node_modules/
 .next/
 .terraform/
+.vscode/
