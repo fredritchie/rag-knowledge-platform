@@ -68,7 +68,9 @@ class User(Base, TimestampMixin):
 
 class TenantMembership(Base, TimestampMixin):
     __tablename__ = "tenant_memberships"
-    __table_args__ = (UniqueConstraint("tenant_id", "user_id"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", name="uq_tenant_memberships_tenant_user"),
+    )
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("mem"))
     tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -93,8 +95,12 @@ class Document(Base, TimestampMixin):
 class DocumentVersion(Base, TimestampMixin):
     __tablename__ = "document_versions"
     __table_args__ = (
-        UniqueConstraint("document_id", "version_number"),
-        UniqueConstraint("tenant_id", "checksum_sha256"),
+        UniqueConstraint(
+            "document_id", "version_number", name="uq_document_versions_document_version"
+        ),
+        UniqueConstraint(
+            "tenant_id", "checksum_sha256", name="uq_document_versions_tenant_checksum"
+        ),
     )
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("ver"))
     tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
@@ -121,7 +127,13 @@ class DocumentVersion(Base, TimestampMixin):
 class DocumentPermission(Base, TimestampMixin):
     __tablename__ = "document_permissions"
     __table_args__ = (
-        UniqueConstraint("document_id", "principal_type", "principal_id", "capability"),
+        UniqueConstraint(
+            "document_id",
+            "principal_type",
+            "principal_id",
+            "capability",
+            name="uq_document_permissions_document_principal_capability",
+        ),
     )
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("acl"))
     tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
@@ -135,7 +147,14 @@ class DocumentPermission(Base, TimestampMixin):
 
 class DocumentSource(Base, TimestampMixin):
     __tablename__ = "document_sources"
-    __table_args__ = (UniqueConstraint("tenant_id", "source_type", "source_file_id"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "source_type",
+            "source_file_id",
+            name="uq_document_sources_tenant_source_file",
+        ),
+    )
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("src"))
     tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
     document_id: Mapped[str] = mapped_column(
@@ -191,8 +210,15 @@ class IngestionReceipt(Base, TimestampMixin):
 
     __tablename__ = "ingestion_receipts"
     __table_args__ = (
-        UniqueConstraint("provider", "event_id"),
-        UniqueConstraint("provider", "bucket", "object_key", "object_version", "event_type"),
+        UniqueConstraint("provider", "event_id", name="uq_ingestion_receipts_provider_event_id"),
+        UniqueConstraint(
+            "provider",
+            "bucket",
+            "object_key",
+            "object_version",
+            "event_type",
+            name="uq_ingestion_receipts_provider_object_version_event",
+        ),
     )
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("rcp"))
     tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
@@ -303,7 +329,11 @@ class DriveCheckpoint(Base, TimestampMixin):
 
 class DriveChangeEvent(Base, TimestampMixin):
     __tablename__ = "drive_change_events"
-    __table_args__ = (UniqueConstraint("connection_id", "change_key"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "connection_id", "change_key", name="uq_drive_change_events_connection_change"
+        ),
+    )
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("dch"))
     connection_id: Mapped[str] = mapped_column(
         ForeignKey("drive_connections.id", ondelete="CASCADE"), index=True
@@ -344,7 +374,9 @@ class ModelVersion(Base, TimestampMixin):
     provider: Mapped[str] = mapped_column(String(100), nullable=False)
     parameters: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    __table_args__ = (UniqueConstraint("name", "version"),)
+    __table_args__ = (
+        UniqueConstraint("name", "version", name="uq_embedding_profiles_name_version"),
+    )
 
 
 class PromptVersion(Base, TimestampMixin):
@@ -355,7 +387,7 @@ class PromptVersion(Base, TimestampMixin):
     checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    __table_args__ = (UniqueConstraint("name", "version"),)
+    __table_args__ = (UniqueConstraint("name", "version", name="uq_parser_profiles_name_version"),)
 
 
 class EmbeddingVersion(Base, TimestampMixin):
@@ -367,7 +399,11 @@ class EmbeddingVersion(Base, TimestampMixin):
     collection: Mapped[str] = mapped_column(String(200), nullable=False)
     parameters: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    __table_args__ = (UniqueConstraint("model", "version", "collection"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "model", "version", "collection", name="uq_vector_collections_model_version_collection"
+        ),
+    )
 
 
 Index(
