@@ -1,0 +1,36 @@
+aws_region = "us-east-1"
+name       = "replace-with-unique-rag-phase7-dev"
+
+callback_urls = [
+  "http://localhost:3000/auth/callback",
+]
+
+logout_urls = [
+  "http://localhost:3000",
+]
+
+# Cognito roles are useful for test identity claims. The backend still authorizes
+# roles using PostgreSQL tenant_memberships, so create matching active memberships.
+test_users = {
+  tenant_a_admin = {
+    email     = "tenant-a-admin@example.test"
+    tenant_id = "ten_test_a"
+    groups    = ["ADMIN"]
+  }
+  tenant_a_viewer = {
+    email     = "tenant-a-viewer@example.test"
+    tenant_id = "ten_test_a"
+    groups    = ["VIEWER"]
+  }
+  tenant_b_admin = {
+    email     = "tenant-b-admin@example.test"
+    tenant_id = "ten_test_b"
+    groups    = ["ADMIN"]
+  }
+}
+
+tags = {
+  Environment = "phase7-dev"
+  ManagedBy   = "Terraform"
+  Project     = "rag-knowledge-platform"
+}
