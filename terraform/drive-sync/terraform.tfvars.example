@@ -1,0 +1,8 @@
+aws_region         = "ap-south-1"
+name               = "replace-with-a-unique-drive-sync-name"
+bucket_arn         = "arn:aws:s3:::replace-with-your-phase-8-document-bucket"
+queue_arn          = "arn:aws:sqs:ap-south-1:123456789012:replace-with-your-phase-9-queue"
+queue_kms_key_arn  = "arn:aws:kms:ap-south-1:123456789012:key/replace-with-phase-9-key-id"
+worker_role_name   = "replace-with-your-phase-8-document-app-role"
+secret_name        = "replace-with-a-unique-google-drive-oauth-secret-name"
+canonical_prefix   = "tenants/*/drive/*"
