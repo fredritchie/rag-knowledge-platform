@@ -56,13 +56,17 @@ Delete and reindex are asynchronous jobs. Delete first marks the document DELETI
 processor must remove vectors and canonical objects according to retention policy before marking
 DELETED. Reindex targets the current version without replacing document identity.
 
-## Important adapter boundary
+## Production worker
 
-This repository implements orchestration, persistence, safe switching, and tested processor
-protocols. The command-line worker intentionally ships with an unconfigured processor that fails
-visibly. A deployment must inject its concrete S3 download, Phase 1 parser/chunker, embedding,
-Qdrant upsert/validation, old-vector cleanup, and S3 deletion adapter. This prevents a scaffold from
-claiming a document is active without actually processing it.
+`rag-ingestion-worker` downloads the canonical object from S3, verifies its SHA-256 checksum,
+extracts PDF text with PyMuPDF, chunks it, embeds each chunk, and upserts tenant-scoped points to
+Qdrant. It creates the new vectors before activating the version, then removes vectors belonging to
+the old version only after the new version is committed ACTIVE. A cleanup failure is logged without
+reverting the usable replacement version.
+
+The worker needs the same `RAG__DATABASE__*`, `RAG__STORAGE__*`, `RAG__QDRANT__*`, and
+`RAG__EMBEDDING__*` settings as the API, plus the ML extra for the default sentence-transformer
+embedder (`make install-ml`). Run it separately with `make ingestion-worker`.
 
 ## Exit checklist
 
@@ -74,4 +78,4 @@ claiming a document is active without actually processing it.
 - [ ] Successful replacement activates new vectors before deactivating/cleaning old vectors.
 - [ ] Job stages and errors are visible in API/UI.
 - [ ] Delete/reindex are asynchronous and audited.
-- [ ] Concrete production processor and deletion adapters pass end-to-end tests.
+- [ ] Production S3/Qdrant processor and deletion adapter pass end-to-end tests.

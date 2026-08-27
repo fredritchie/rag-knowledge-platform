@@ -39,6 +39,10 @@ class VectorStore(Protocol):
 
     def delete_document(self, document_id: str, tenant_id: str) -> None: ...
 
+    def delete_document_version(
+        self, document_id: str, tenant_id: str, version_id: str
+    ) -> None: ...
+
 
 class QdrantVectorStore:
     def __init__(self, config: QdrantSettings):
@@ -146,6 +150,25 @@ class QdrantVectorStore:
             ),
         )
 
+    def delete_document_version(self, document_id: str, tenant_id: str, version_id: str) -> None:
+        from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
+
+        self.client.delete(
+            collection_name=self.config.collection,
+            wait=True,
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[
+                        FieldCondition(key="document_id", match=MatchValue(value=document_id)),
+                        FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id)),
+                        FieldCondition(
+                            key="document_version_id", match=MatchValue(value=version_id)
+                        ),
+                    ]
+                )
+            ),
+        )
+
 
 class InMemoryVectorStore:
     def __init__(self):
@@ -189,5 +212,16 @@ class InMemoryVectorStore:
             if not (
                 point.payload.get("document_id") == document_id
                 and point.payload.get("tenant_id") == tenant_id
+            )
+        }
+
+    def delete_document_version(self, document_id: str, tenant_id: str, version_id: str) -> None:
+        self.points = {
+            key: point
+            for key, point in self.points.items()
+            if not (
+                point.payload.get("document_id") == document_id
+                and point.payload.get("tenant_id") == tenant_id
+                and point.payload.get("document_version_id") == version_id
             )
         }
