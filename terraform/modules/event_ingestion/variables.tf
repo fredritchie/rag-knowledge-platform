@@ -36,9 +36,14 @@ variable "alarm_actions" {
   type    = list(string)
   default = []
 }
-variable "kms_master_key_id" {
-  type    = string
-  default = "alias/aws/sqs"
+variable "kms_deletion_window_in_days" {
+  type    = number
+  default = 30
+
+  validation {
+    condition     = var.kms_deletion_window_in_days >= 7 && var.kms_deletion_window_in_days <= 30
+    error_message = "kms_deletion_window_in_days must be between 7 and 30."
+  }
 }
 variable "tags" {
   type    = map(string)

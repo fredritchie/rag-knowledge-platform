@@ -1,7 +1,67 @@
+data "aws_caller_identity" "current" {}
+
+data "aws_iam_policy_document" "sqs_key" {
+  statement {
+    sid       = "EnableAccountAdministration"
+    effect    = "Allow"
+    actions   = ["kms:*"]
+    resources = ["*"]
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+  }
+
+  statement {
+    sid       = "AllowEventBridgeToEncryptQueueMessages"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = ["*"]
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+
+  statement {
+    sid       = "AllowSqsToUseKey"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = ["*"]
+    principals {
+      type        = "Service"
+      identifiers = ["sqs.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "kms:CallerAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+}
+
+resource "aws_kms_key" "sqs" {
+  description             = "Phase 9 EventBridge and SQS ingestion encryption"
+  deletion_window_in_days = var.kms_deletion_window_in_days
+  enable_key_rotation     = true
+  policy                  = data.aws_iam_policy_document.sqs_key.json
+  tags                    = var.tags
+}
+
+resource "aws_kms_alias" "sqs" {
+  name          = "alias/${var.name}-sqs"
+  target_key_id = aws_kms_key.sqs.key_id
+}
+
 resource "aws_sqs_queue" "dlq" {
   name                      = "${var.name}-dlq"
   message_retention_seconds = var.dlq_retention_seconds
-  kms_master_key_id         = var.kms_master_key_id
+  kms_master_key_id         = aws_kms_key.sqs.arn
   tags                      = var.tags
 }
 
@@ -10,7 +70,7 @@ resource "aws_sqs_queue" "ingestion" {
   visibility_timeout_seconds = var.visibility_timeout_seconds
   message_retention_seconds  = var.message_retention_seconds
   receive_wait_time_seconds  = 20
-  kms_master_key_id          = var.kms_master_key_id
+  kms_master_key_id          = aws_kms_key.sqs.arn
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.dlq.arn
     maxReceiveCount     = var.max_receive_count
