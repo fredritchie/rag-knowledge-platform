@@ -1,5 +1,5 @@
 aws_region  = "ap-south-1"
-bucket_name = "replace-with-a-globally-unique-rag-documents-bucket"
+bucket_name = "fred-rag-unique-bucket-12345"
 
 # localhost is valid only while using the SSH-tunnel test flow. Add the HTTPS
 # production origin after deploying the frontend behind a domain and TLS.
