@@ -69,6 +69,9 @@ Add integration tests against the real Cognito user pool and Qdrant filter telem
 
 ## Exit checklist
 
+See [the Phase 7 exit-criteria runbook](EXIT_CRITERIA_RUNBOOK.md) for the
+reproducible Cognito, PostgreSQL, RBAC, and tenant-isolation validation steps.
+
 - [ ] Real JWKS rotation succeeds without restart.
 - [ ] Expired, missing, malformed, wrong-audience, wrong-issuer, and modified tokens fail.
 - [ ] Admin/editor/viewer matrix is covered at route level.
