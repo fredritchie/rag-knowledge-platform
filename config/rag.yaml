@@ -92,7 +92,7 @@ auth:
   audience: 6i9mt7qu3hol5gjt5ovvir2sgj
   jwks_url: null
   algorithms: [RS256]
-  jwks_cache_seconds: 3600
+  jwks_cache_seconds: 30
   clock_skew_seconds: 30
   tenant_claim: custom:tenant_id
   role_claim: cognito:groups
