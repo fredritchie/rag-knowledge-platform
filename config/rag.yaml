@@ -120,9 +120,9 @@ worker:
   heartbeat_seconds: 30
 
 event_ingestion:
-  enabled: false
-  queue_url: ""
-  dlq_url: ""
+  enabled: true
+  queue_url: "https://sqs.ap-south-1.amazonaws.com/008971653023/fred-rag-unique-event-12345"
+  dlq_url: "https://sqs.ap-south-1.amazonaws.com/008971653023/fred-rag-unique-event-12345-dlq"
   wait_time_seconds: 20
   visibility_timeout_seconds: 900
   visibility_heartbeat_seconds: 120
