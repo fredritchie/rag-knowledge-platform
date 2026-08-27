@@ -1,4 +1,4 @@
-.PHONY: install install-ml migrate api event-worker sync-worker frontend-install frontend-dev test test-all lint format check corpus services-up services-down clean
+.PHONY: install install-ml migrate api ingestion-worker event-worker sync-worker frontend-install frontend-dev test test-all lint format check corpus services-up services-down clean
 
 install:
 	python3 -m pip install -e '.[dev]'
@@ -11,6 +11,9 @@ migrate:
 
 api:
 	rag-api
+
+ingestion-worker:
+	rag-ingestion-worker
 
 event-worker:
 	rag-s3-event-worker
