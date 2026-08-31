@@ -124,8 +124,8 @@ event_ingestion:
   queue_url: "https://sqs.ap-south-1.amazonaws.com/008971653023/fred-rag-unique-event-12345"
   dlq_url: "https://sqs.ap-south-1.amazonaws.com/008971653023/fred-rag-unique-event-12345-dlq"
   wait_time_seconds: 20
-  visibility_timeout_seconds: 900
-  visibility_heartbeat_seconds: 120
+  visibility_timeout_seconds: 30
+  visibility_heartbeat_seconds: 10
   max_messages: 5
   max_receive_count: 5
   accepted_event_types: [Object Created, Object Deleted]
