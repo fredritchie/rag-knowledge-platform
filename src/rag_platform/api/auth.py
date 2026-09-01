@@ -143,13 +143,17 @@ async def request_context(
     claims: TokenClaims = Depends(token_claims),
 ) -> RequestContext:
     session: AsyncSession = request.state.db
+    # The signed Cognito claim supplies a safe default tenant. A request can
+    # select another tenant only when this user has an active membership there.
+    requested_tenant_id = request.headers.get("X-Tenant-ID")
+    effective_tenant_id = requested_tenant_id or claims.tenant_id
     result = await session.execute(
         select(User, TenantMembership)
         .join(TenantMembership, TenantMembership.user_id == User.id)
         .where(
             User.external_subject == claims.subject,
             User.status == "ACTIVE",
-            TenantMembership.tenant_id == claims.tenant_id,
+            TenantMembership.tenant_id == effective_tenant_id,
             TenantMembership.active.is_(True),
         )
     )

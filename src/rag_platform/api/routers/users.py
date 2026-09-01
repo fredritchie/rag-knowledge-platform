@@ -93,7 +93,11 @@ async def invite_user(body: UserInvitationCreate, request: Request, context: Req
     response = await asyncio.to_thread(
         _cognito(request).admin_create_user,
         UserPoolId=_pool_id(request), Username=email,
-        UserAttributes=[{"Name": "email", "Value": email}, {"Name": "email_verified", "Value": "true"}],
+        UserAttributes=[
+            {"Name": "email", "Value": email},
+            {"Name": "email_verified", "Value": "true"},
+            {"Name": request.app.state.settings.auth.tenant_claim, "Value": context.tenant_id},
+        ],
         DesiredDeliveryMediums=["EMAIL"],
     )
     attributes = {item["Name"]: item["Value"] for item in response["User"].get("Attributes", [])}

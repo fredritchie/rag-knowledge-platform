@@ -33,6 +33,11 @@ class TenantOut(ORMModel):
     updated_at: datetime
 
 
+class TenantCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    slug: str = Field(min_length=3, max_length=100, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
 class UserOut(ORMModel):
     id: str
     external_subject: str
