@@ -201,6 +201,10 @@ def test_admin_can_control_drive_connection_and_view_queue_health(tmp_path: Path
         assert client.post(
             f"/api/v1/admin/drive/connections/{connection_id}/resume"
         ).json()["status"] == "ACTIVE"
+        deleted = client.delete(f"/api/v1/admin/drive/connections/{connection_id}/link")
+        assert deleted.status_code == 200, deleted.text
+        assert deleted.json()["status"] == "DELETED"
+        assert client.get("/api/v1/admin/drive/connections").json() == []
         health = client.get("/api/v1/admin/ingestion/queue-health")
         assert health.status_code == 200
         assert health.json()["enabled"] is True

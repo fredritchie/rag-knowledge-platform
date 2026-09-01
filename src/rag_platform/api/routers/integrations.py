@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from rag_platform.api.audit import add_audit_event
 from rag_platform.api.auth import RequestContext, require_capability
@@ -184,6 +184,41 @@ async def disconnect_drive(
         resource_id=connection.id,
     )
     return {"connection_id": connection.id, "status": connection.status}
+
+
+@router.delete("/drive/connections/{connection_id}/link")
+async def delete_drive_link(
+    connection_id: str,
+    request: Request,
+    context: RequestContext = Depends(require_capability("ADMIN")),
+) -> dict[str, str]:
+    """Remove a Drive connection without touching already imported documents.
+
+    Disconnect remains available for retaining the connection and its sync history.
+    This operation is intended for accidental or duplicate links: it removes the
+    connection's scheduler/checkpoint state and per-change records, while the
+    tenant audit entry and all previously ingested documents remain intact.
+    """
+    connection = await _connection(request, context.tenant_id, connection_id)
+    await request.state.db.execute(
+        delete(DriveChangeEvent).where(DriveChangeEvent.connection_id == connection.id)
+    )
+    await request.state.db.execute(
+        delete(DriveCheckpoint).where(DriveCheckpoint.connection_id == connection.id)
+    )
+    await request.state.db.execute(
+        delete(DriveSyncState).where(DriveSyncState.connection_id == connection.id)
+    )
+    await request.state.db.delete(connection)
+    add_audit_event(
+        request.state.db,
+        request,
+        context,
+        action="drive.link_deleted",
+        resource_type="drive_connection",
+        resource_id=connection_id,
+    )
+    return {"connection_id": connection_id, "status": "DELETED"}
 
 
 @router.get("/drive/connections/{connection_id}/errors", response_model=list[DriveErrorOut])
