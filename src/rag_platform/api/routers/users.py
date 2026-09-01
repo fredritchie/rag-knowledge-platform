@@ -18,7 +18,9 @@ def _pool_id(request: Request) -> str:
 
 
 def _cognito(request: Request):
-    return getattr(request.app.state, "cognito_admin", None) or boto3.client("cognito-idp")
+    return getattr(request.app.state, "cognito_admin", None) or boto3.client(
+        "cognito-idp", region_name=request.app.state.settings.storage.region
+    )
 
 
 @router.get("", response_model=list[UserOut])
