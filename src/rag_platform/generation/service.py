@@ -9,6 +9,7 @@ from rag_platform.domain.models import Citation, RAGResponse
 from rag_platform.generation.llm import LanguageModel, OllamaClient
 from rag_platform.generation.prompts import format_context, load_prompt
 from rag_platform.retrieval.service import RetrievalService
+from rag_platform.security.rag import secure_system_prompt, validate_model_output
 
 
 class GenerationService:
@@ -45,7 +46,15 @@ class GenerationService:
                 insufficient_context_message=config.insufficient_context_message,
             )
             generation_started = perf_counter()
-            answer = self.llm.generate(system=template.system, prompt=prompt)
+            answer = validate_model_output(
+                self.llm.generate(
+                    system=secure_system_prompt(
+                        template.system, tools_enabled=self.settings.security.tools_enabled
+                    ),
+                    prompt=prompt,
+                ),
+                source_count=len(included),
+            )
             generation_ms = (perf_counter() - generation_started) * 1000
 
         elapsed_ms = (perf_counter() - started) * 1000
@@ -91,10 +100,18 @@ class GenerationService:
             yield config.insufficient_context_message
             return
         template = load_prompt(config.prompt_dir, config.prompt_version)
-        context, _ = format_context(results, config.max_context_tokens)
+        context, included = format_context(results, config.max_context_tokens)
         prompt = template.user.format(
             question=question,
             context=context,
             insufficient_context_message=config.insufficient_context_message,
         )
-        yield from self.llm.stream(system=template.system, prompt=prompt)
+        answer = "".join(
+            self.llm.stream(
+                system=secure_system_prompt(
+                    template.system, tools_enabled=self.settings.security.tools_enabled
+                ),
+                prompt=prompt,
+            )
+        )
+        yield validate_model_output(answer, source_count=len(included))

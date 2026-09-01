@@ -80,6 +80,14 @@ class GenerationSettings(ConfigSection):
     )
 
 
+class SecuritySettings(ConfigSection):
+    """RAG safety controls. Tool invocation remains opt-in and disabled by default."""
+
+    tools_enabled: bool = False
+    redact_sensitive_data: bool = True
+    label_untrusted_documents: bool = True
+
+
 class EvaluationSettings(ConfigSection):
     retrieval_dataset: Path = Path("evaluation/datasets/retrieval-golden.jsonl")
     rag_dataset: Path = Path("evaluation/datasets/rag-golden.jsonl")
@@ -205,6 +213,7 @@ class Settings(ConfigSection):
     retrieval: RetrievalSettings = RetrievalSettings()
     reranker: RerankerSettings = RerankerSettings()
     generation: GenerationSettings = GenerationSettings()
+    security: SecuritySettings = SecuritySettings()
     evaluation: EvaluationSettings = EvaluationSettings()
     database: DatabaseSettings = DatabaseSettings()
     api: APISettings = APISettings()

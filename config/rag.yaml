@@ -59,6 +59,11 @@ generation:
   insufficient_context_message: >-
     The available documents do not contain enough information to answer this question.
 
+security:
+  tools_enabled: false
+  redact_sensitive_data: true
+  label_untrusted_documents: true
+
 evaluation:
   retrieval_dataset: evaluation/datasets/retrieval-golden.jsonl
   rag_dataset: evaluation/datasets/rag-golden.jsonl

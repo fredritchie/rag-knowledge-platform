@@ -23,6 +23,7 @@ from rag_platform.application.db.models import (
 )
 from rag_platform.application.db.session import Database
 from rag_platform.config import Settings, load_settings
+from rag_platform.security.rag import analyze_content
 from rag_platform.ingestion.service import IngestionService
 from rag_platform.retrieval.service import RetrievalService
 from rag_platform.workers.ingestion import IngestionWorker, ProcessingResult
@@ -179,6 +180,20 @@ class S3PipelineProcessor:
                 document_version=version.version_number,
                 document_id=document.id,
             )
+            chunks = ingestion.catalog.get_chunks(document.id)
+            suspicious = [
+                analysis
+                for chunk in chunks
+                if (analysis := analyze_content(chunk.text)).suspicious
+            ]
+            if suspicious:
+                logger.warning(
+                    "Security analysis flagged %s/%s chunks for document %s; "
+                    "content remains untrusted and is isolated before generation",
+                    len(suspicious),
+                    len(chunks),
+                    document.id,
+                )
             retrieval = RetrievalService(tenant_settings, catalog=ingestion.catalog)
             indexed = await asyncio.to_thread(retrieval.index_document, document.id)
             if indexed != result.chunk_count or indexed < 1:

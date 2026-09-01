@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 
 from rag_platform.domain.models import SearchResult
+from rag_platform.security.rag import isolated_document_context
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,14 +35,16 @@ def format_context(results: list[SearchResult], max_tokens: int) -> tuple[str, l
     included: list[SearchResult] = []
     used = 0
     for index, result in enumerate(results, 1):
-        section = (
+        source_label = (
             f"[SOURCE {index}]\n"
             f"document_id: {result.document_id}\n"
             f"filename: {result.filename}\n"
             f"page: {result.page}\n"
-            f"chunk_id: {result.chunk_id}\n"
-            f"text:\n{result.text}\n"
+            f"chunk_id: {result.chunk_id}"
         )
+        section = f"{source_label}\n" + isolated_document_context(
+            text=result.text, source_label=f"SOURCE {index}"
+        ) + "\n"
         if used + len(section) > max_chars:
             remaining = max_chars - used
             if remaining > 200:
@@ -51,4 +54,9 @@ def format_context(results: list[SearchResult], max_tokens: int) -> tuple[str, l
         sections.append(section)
         included.append(result)
         used += len(section)
-    return "\n".join(sections), included
+    return (
+        "<AUTHORIZED_RETRIEVED_CONTEXT>\n"
+        + "\n".join(sections)
+        + "\n</AUTHORIZED_RETRIEVED_CONTEXT>",
+        included,
+    )
