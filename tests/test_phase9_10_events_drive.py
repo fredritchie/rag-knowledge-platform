@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from rag_platform.api.app import create_application
 from rag_platform.api.auth import RequestContext, request_context
 from rag_platform.application.db.models import (
     Base,
     Document,
+    DocumentSource,
     DocumentVersion,
+    DriveChangeEvent,
+    DriveConnection,
     IngestionJob,
     IngestionReceipt,
     Tenant,
@@ -22,7 +27,7 @@ from rag_platform.application.db.session import Database
 from rag_platform.config import Settings
 from rag_platform.workers.ingestion import ProcessingResult
 from rag_platform.workers.s3_events import QueueMessage, S3EventWorker, StorageEvent
-from rag_platform.workers.sync import _classify_change
+from rag_platform.workers.sync import DriveSyncService, _classify_change
 
 
 class FakeStorage:
@@ -45,6 +50,19 @@ class FakeQueue:
 
     async def dlq_message_count(self):
         return 0
+
+
+class FakeDrive:
+    def __init__(self, content: bytes):
+        self.content = content
+
+    async def download(self, connection, file):
+        return self.content
+
+
+class FakeS3:
+    def put_object(self, **kwargs):
+        raise AssertionError("Duplicate Drive content must not be uploaded again")
 
 
 class CountingProcessor:
@@ -173,6 +191,54 @@ def test_drive_change_classification_handles_all_required_actions() -> None:
     assert _classify_change(permission, previous) == "PERMISSION_CHANGE"
     unchanged = {"file": {"parents": ["old"], "permissionIds": ["one"]}}
     assert _classify_change(unchanged, previous) == "UPDATE"
+
+
+def test_drive_create_reuses_existing_tenant_content_without_duplicate_version(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    database = Database(settings.database)
+    asyncio.run(_seed(database))
+    content = b"same-content-already-uploaded-manually"
+
+    async def prepare_and_apply():
+        async with database.sessions() as session:
+            version = await session.get(DocumentVersion, "ver_a")
+            version.checksum_sha256 = hashlib.sha256(content).hexdigest()
+            connection = DriveConnection(
+                id="drv_a", tenant_id="ten_a", display_name="Drive", secret_reference="secret"
+            )
+            session.add(connection)
+            await session.commit()
+
+        service = DriveSyncService(
+            settings, database, FakeDrive(content), s3_client=FakeS3(), sqs_client=FakeQueue()
+        )
+        change = {
+            "fileId": "drive-file-a",
+            "file": {
+                "id": "drive-file-a",
+                "name": "policy.pdf",
+                "mimeType": "application/pdf",
+                "modifiedTime": "2026-09-01T10:00:00Z",
+                "parents": [],
+                "permissionIds": [],
+                "permissions": [],
+            },
+        }
+        assert await service._apply_change(connection, change) is True
+
+        async with database.sessions() as session:
+            sources = list(await session.scalars(select(DocumentSource)))
+            versions = list(await session.scalars(select(DocumentVersion)))
+            events = list(await session.scalars(select(DriveChangeEvent)))
+            return sources, versions, events
+
+    sources, versions, events = asyncio.run(prepare_and_apply())
+    assert len(versions) == 1
+    assert len(sources) == 1
+    assert sources[0].document_id == "doc_a"
+    assert events[0].action == "CREATE"
+    assert events[0].status == "PUBLISHED"
+    asyncio.run(database.dispose())
 
 
 def test_admin_can_control_drive_connection_and_view_queue_health(tmp_path: Path) -> None:

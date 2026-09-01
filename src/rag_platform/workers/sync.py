@@ -296,22 +296,34 @@ class DriveSyncService:
     async def _publish_upsert(self, session, connection, source, file) -> None:
         content = await self.client.download(connection, file)
         checksum = hashlib.sha256(content).hexdigest()
+        duplicate = await session.scalar(
+            select(DocumentVersion).where(
+                DocumentVersion.tenant_id == connection.tenant_id,
+                DocumentVersion.checksum_sha256 == checksum,
+            )
+        )
+        if duplicate:
+            # Checksums are unique per tenant. A Drive file can legitimately be
+            # connected after an identical manual upload, so attach the new
+            # source to that canonical document instead of creating a version
+            # that violates the tenant-wide duplicate-content constraint.
+            document = await session.get(Document, duplicate.document_id)
+            if document is None:
+                raise ValueError("Duplicate document version points to a missing document")
+            if source is None:
+                source = DocumentSource(
+                    tenant_id=connection.tenant_id,
+                    document_id=document.id,
+                    source_type="google_drive",
+                    source_file_id=str(file["id"]),
+                )
+                session.add(source)
+            source.source_version = file.get("modifiedTime")
+            source.metadata_json = file
+            await self._replace_permissions(session, document, file.get("permissions", []))
+            return
         if source:
             document = await session.get(Document, source.document_id)
-            duplicate = await session.scalar(
-                select(DocumentVersion).where(
-                    DocumentVersion.tenant_id == connection.tenant_id,
-                    DocumentVersion.checksum_sha256 == checksum,
-                )
-            )
-            if duplicate and duplicate.document_id == source.document_id:
-                source.source_version = file.get("modifiedTime")
-                source.metadata_json = file
-                if document is not None:
-                    await self._replace_permissions(
-                        session, document, file.get("permissions", [])
-                    )
-                return
             maximum = await session.scalar(
                 select(DocumentVersion.version_number)
                 .where(DocumentVersion.document_id == source.document_id)
