@@ -122,6 +122,7 @@ class AuthSettings(ConfigSection):
     enabled: bool = True
     issuer: str = "https://cognito-idp.us-east-1.amazonaws.com/replace-me"
     audience: str = "replace-me-client-id"
+    user_pool_id: str | None = None
     jwks_url: str | None = None
     algorithms: list[str] = ["RS256"]
     jwks_cache_seconds: int = Field(3600, ge=1)

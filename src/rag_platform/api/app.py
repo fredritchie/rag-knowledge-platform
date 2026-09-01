@@ -80,6 +80,7 @@ def create_application(
     app.state.database = database
     app.state.storage = storage or S3Storage(settings.storage)
     app.state.jwt_verifier = CognitoJWTVerifier(settings.auth)
+    app.state.cognito_admin = None
     if (
         event_queue is None
         and settings.event_ingestion.enabled

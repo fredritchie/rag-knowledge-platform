@@ -60,6 +60,12 @@ class MembershipCreate(BaseModel):
     groups: list[str] = Field(default_factory=list)
 
 
+class UserInvitationCreate(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    display_name: str | None = Field(None, max_length=200)
+    role: Literal["ADMIN", "EDITOR", "VIEWER"] = "VIEWER"
+
+
 class CurrentUser(BaseModel):
     user_id: str
     external_subject: str

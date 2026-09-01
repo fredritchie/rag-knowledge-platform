@@ -12,6 +12,7 @@ const links = [
   ["/chat", "Chat"],
   ["/documents", "Documents"],
   ["/ingestion", "Ingestion"],
+  ["/users", "Users"],
   ["/admin", "Admin"],
 ] as const;
 
