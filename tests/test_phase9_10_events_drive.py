@@ -241,6 +241,68 @@ def test_drive_create_reuses_existing_tenant_content_without_duplicate_version(t
     asyncio.run(database.dispose())
 
 
+def test_failed_drive_change_is_retried_after_recovery(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    database = Database(settings.database)
+    asyncio.run(_seed(database))
+    content = b"retry-the-previously-failed-drive-change"
+
+    async def prepare_and_apply():
+        async with database.sessions() as session:
+            version = await session.get(DocumentVersion, "ver_a")
+            version.checksum_sha256 = hashlib.sha256(content).hexdigest()
+            connection = DriveConnection(
+                id="drv_retry", tenant_id="ten_a", display_name="Drive", secret_reference="secret"
+            )
+            session.add_all(
+                [
+                    connection,
+                    DriveChangeEvent(
+                        id="dch_failed",
+                        connection_id=connection.id,
+                        tenant_id="ten_a",
+                        change_key="retry-key",
+                        file_id="drive-file-retry",
+                        action="CREATE",
+                        status="FAILED",
+                        last_error="Previous transient failure",
+                    ),
+                ]
+            )
+            await session.commit()
+
+        service = DriveSyncService(
+            settings, database, FakeDrive(content), s3_client=FakeS3(), sqs_client=FakeQueue()
+        )
+        change = {
+            "fileId": "drive-file-retry",
+            "file": {
+                "id": "drive-file-retry",
+                "name": "retry.pdf",
+                "mimeType": "application/pdf",
+                "modifiedTime": "2026-09-01T10:00:00Z",
+                "parents": [],
+                "permissionIds": [],
+                "permissions": [],
+            },
+        }
+        change_key = hashlib.sha256(
+            json.dumps(change, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        async with database.sessions() as session:
+            failed = await session.get(DriveChangeEvent, "dch_failed")
+            failed.change_key = change_key
+            await session.commit()
+        assert await service._apply_change(connection, change) is True
+        async with database.sessions() as session:
+            return await session.get(DriveChangeEvent, "dch_failed")
+
+    event = asyncio.run(prepare_and_apply())
+    assert event.status == "PUBLISHED"
+    assert event.last_error is None
+    asyncio.run(database.dispose())
+
+
 def test_admin_can_control_drive_connection_and_view_queue_health(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     database = Database(settings.database)

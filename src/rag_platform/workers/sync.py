@@ -240,7 +240,7 @@ class DriveSyncService:
                     DriveChangeEvent.change_key == change_key,
                 )
             )
-            if seen:
+            if seen and seen.status != "FAILED":
                 return False
             source = await session.scalar(
                 select(DocumentSource).where(
@@ -250,17 +250,25 @@ class DriveSyncService:
                 )
             )
             action = _classify_change(change, source.metadata_json if source else None)
-            event = DriveChangeEvent(
-                connection_id=connection.id,
-                tenant_id=connection.tenant_id,
-                change_key=change_key,
-                file_id=file_id,
-                action=action,
-                source_version=file.get("modifiedTime"),
-                details={"file": file},
-            )
-            session.add(event)
-            await session.flush()
+            if seen:
+                event = seen
+                event.action = action
+                event.source_version = file.get("modifiedTime")
+                event.details = {"file": file}
+                event.status = "PENDING"
+                event.last_error = None
+            else:
+                event = DriveChangeEvent(
+                    connection_id=connection.id,
+                    tenant_id=connection.tenant_id,
+                    change_key=change_key,
+                    file_id=file_id,
+                    action=action,
+                    source_version=file.get("modifiedTime"),
+                    details={"file": file},
+                )
+                session.add(event)
+                await session.flush()
             try:
                 if (
                     action != "DELETE"
