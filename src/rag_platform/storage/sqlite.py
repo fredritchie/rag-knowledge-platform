@@ -210,20 +210,22 @@ class SQLiteCatalog:
     def find_by_checksum(
         self, checksum_sha256: str, *, tenant_id: str | None = None
     ) -> DocumentRecord | None:
-        tenant_clause = " AND tenant_id = ?" if tenant_id is not None else ""
         params: list[str] = [checksum_sha256, DocumentStatus.DELETED.value]
         if tenant_id is not None:
+            query = """
+                SELECT * FROM documents
+                WHERE checksum_sha256 = ? AND status != ? AND tenant_id = ?
+                ORDER BY created_at DESC LIMIT 1
+            """
             params.append(tenant_id)
-        with self._connect() as conn:
-            row = conn.execute(
-                f"""
+        else:
+            query = """
                 SELECT * FROM documents
                 WHERE checksum_sha256 = ? AND status != ?
-                {tenant_clause}
                 ORDER BY created_at DESC LIMIT 1
-                """,
-                params,
-            ).fetchone()
+            """
+        with self._connect() as conn:
+            row = conn.execute(query, params).fetchone()
         return self._row_to_document(row) if row else None
 
     def list_documents(
@@ -319,18 +321,18 @@ class SQLiteCatalog:
     ) -> list[ChunkRecord]:
         if not chunk_ids:
             return []
-        placeholders = ",".join("?" for _ in chunk_ids)
-        params = [*chunk_ids]
-        tenant_clause = ""
         if tenant_id is not None:
-            tenant_clause = " AND tenant_id = ?"
-            params.append(tenant_id)
+            query = "SELECT * FROM chunks WHERE chunk_id = ? AND tenant_id = ?"
+        else:
+            query = "SELECT * FROM chunks WHERE chunk_id = ?"
         with self._connect() as conn:
-            rows = conn.execute(
-                f"SELECT * FROM chunks WHERE chunk_id IN ({placeholders}){tenant_clause}", params
-            ).fetchall()
-        by_id = {row["chunk_id"]: ChunkRecord.model_validate(dict(row)) for row in rows}
-        return [by_id[chunk_id] for chunk_id in chunk_ids if chunk_id in by_id]
+            rows = [
+                conn.execute(
+                    query, (chunk_id, tenant_id) if tenant_id is not None else (chunk_id,)
+                ).fetchone()
+                for chunk_id in chunk_ids
+            ]
+        return [ChunkRecord.model_validate(dict(row)) for row in rows if row is not None]
 
     def record_generation(
         self,

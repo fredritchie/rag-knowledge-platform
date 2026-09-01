@@ -74,6 +74,7 @@ services:
     security_opt: ["no-new-privileges:true"]
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=256m
+      - /home/ollama/.ollama:rw,noexec,nosuid,size=16m,uid=10001,gid=10001
     ports:
       - "127.0.0.1:11434:11434"
     volumes:

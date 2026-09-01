@@ -18,9 +18,14 @@ if ((${#missing_tools[@]})); then
   exit 2
 fi
 
-gitleaks detect --source . --redact --no-banner
+gitleaks detect --source . --no-git --redact --no-banner
 bandit -q -r src
-pip-audit
+site_packages=(.venv/lib/python*/site-packages)
+if [[ -d "${site_packages[0]}" ]]; then
+  pip-audit --path "${site_packages[0]}"
+else
+  pip-audit
+fi
 npm --prefix apps/web audit --audit-level=high
 checkov -d . --framework terraform dockerfile --quiet
 tflint --recursive
@@ -38,8 +43,8 @@ helm template rag-platform helm/rag-platform \
   --set-string images.ollamaRuntime.digest="${PLACEHOLDER_DIGEST}" \
   > "${RESULTS_DIR}/rendered.yaml"
 kubeconform -strict -summary -ignore-missing-schemas "${RESULTS_DIR}/rendered.yaml"
-trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
-syft dir:. -o cyclonedx-json="${RESULTS_DIR}/source.cdx.json"
+trivy fs --skip-dirs .venv --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
+syft dir:. --exclude .venv -o cyclonedx-json="${RESULTS_DIR}/source.cdx.json"
 
 images=(rag/frontend:dev rag/api:dev rag/ingestion-worker:dev rag/drive-sync:dev rag/ollama-runtime:0.11.4)
 for image in "${images[@]}"; do

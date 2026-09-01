@@ -7,6 +7,9 @@ useDefault = true
 description = "Generated and dependency paths only"
 paths = [
   '''apps/web/package-lock\.json''',
+  '''(^|/)\.next/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)\.venv/''',
+  '''(^|/)\.terraform/''',
   '''security-results/''',
 ]
-

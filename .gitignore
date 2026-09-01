@@ -12,6 +12,7 @@ dist/
 rag_pdf_corpus/
 *.part
 .DS_Store
+._*
 .env
 node_modules/
 .next/

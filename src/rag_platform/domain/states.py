@@ -31,7 +31,8 @@ class IssueCode(StrEnum):
     NOT_A_FILE = "NOT_A_FILE"
     NOT_PDF = "NOT_PDF"
     CORRUPTED_PDF = "CORRUPTED_PDF"
-    PASSWORD_PROTECTED = "PASSWORD_PROTECTED"
+    # This is a validation issue identifier, not a password or credential.
+    PASSWORD_PROTECTED = "PASSWORD_PROTECTED"  # nosec B105
     EMPTY_PDF = "EMPTY_PDF"
     ZERO_EXTRACTED_TEXT = "ZERO_EXTRACTED_TEXT"
     LOW_TEXT_DENSITY = "LOW_TEXT_DENSITY"

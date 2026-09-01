@@ -12,11 +12,11 @@ dist
 *.egg-info
 .rag_data
 rag_pdf_corpus
-apps/web/node_modules
-apps/web/.next
-.terraform
+**/node_modules
+**/.next
+**/.terraform
 *.tfstate*
 .env
 .DS_Store
+**/._*
 security-results
-

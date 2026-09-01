@@ -41,12 +41,15 @@ spec:
             capabilities: {drop: [ALL]}
           volumeMounts:
             - {name: models, mountPath: /models}
+            - {name: identity, mountPath: /home/ollama/.ollama}
             - {name: tmp, mountPath: /tmp}
       volumes:
         - name: models
           persistentVolumeClaim: {claimName: {{ include "rag-platform.fullname" . }}-ollama}
         - name: tmp
           emptyDir: {sizeLimit: 256Mi}
+        - name: identity
+          emptyDir: {sizeLimit: 16Mi}
 ---
 apiVersion: v1
 kind: Service
@@ -55,4 +58,3 @@ metadata:
 spec:
   selector: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: ollama-runtime}
   ports: [{name: http, port: 11434, targetPort: http}]
-
