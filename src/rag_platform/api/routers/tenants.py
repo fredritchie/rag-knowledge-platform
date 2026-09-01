@@ -34,7 +34,15 @@ async def create_tenant(
     tenant = Tenant(name=body.name, slug=body.slug, status="ACTIVE", settings={})
     session.add(tenant)
     await session.flush()
-    session.add(TenantMembership(tenant_id=tenant.id, user_id=context.user_id, role="ADMIN", groups=["ADMIN"], active=True))
+    session.add(
+        TenantMembership(
+            tenant_id=tenant.id,
+            user_id=context.user_id,
+            role="ADMIN",
+            groups=["ADMIN"],
+            active=True,
+        )
+    )
     await session.flush()
     return tenant
 

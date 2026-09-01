@@ -1,0 +1,7 @@
+apiVersion: v2
+name: rag-platform
+description: Digest-pinned RAG platform application workloads
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+

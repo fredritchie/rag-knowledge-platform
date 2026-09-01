@@ -1,36 +1,170 @@
+name: rag-platform
+
+x-python-build: &python-build
+  context: .
+  dockerfile: docker/python.Dockerfile
+  target: runtime
+
+x-python-environment: &python-environment
+  RAG__API__HOST: 0.0.0.0
+  RAG__DATABASE__URL: postgresql+asyncpg://rag:rag@postgres:5432/rag_platform
+  RAG__QDRANT__URL: http://qdrant:6333
+  RAG__GENERATION__BASE_URL: http://ollama-runtime:11434
+  RAG__EMBEDDING__PROVIDER: deterministic
+  RAG__RERANKER__ENABLED: "false"
+  RAG__RERANKER__PROVIDER: none
+  RAG__AUTH__ENABLED: "false"
+  RAG__EVENT_INGESTION__ENABLED: "false"
+  RAG__DRIVE__ENABLED: "true"
+  RAG__HEALTH__CHECK_OLLAMA: "true"
+  AWS_EC2_METADATA_DISABLED: "true"
+  AWS_ACCESS_KEY_ID: local-development-only
+  AWS_SECRET_ACCESS_KEY: local-development-only
+  AWS_DEFAULT_REGION: us-east-1
+
+x-python-security: &python-security
+  init: true
+  read_only: true
+  user: "10001:10001"
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=256m
+  volumes:
+    - rag_data:/var/lib/rag
+
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17.6-alpine3.22
     environment:
       POSTGRES_DB: rag_platform
       POSTGRES_USER: rag
       POSTGRES_PASSWORD: rag
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rag -d rag_platform"]
+      test: [CMD-SHELL, pg_isready -U rag -d rag_platform]
       interval: 5s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
 
   qdrant:
     image: qdrant/qdrant:v1.15.4
     ports:
-      - "6333:6333"
-      - "6334:6334"
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
 
-  ollama:
-    image: ollama/ollama:0.11.4
+  ollama-runtime:
+    image: rag/ollama-runtime:0.11.4
+    build:
+      context: .
+      dockerfile: docker/ollama.Dockerfile
+      target: runtime
+    read_only: true
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
-      - ollama_data:/root/.ollama
+      - ollama_data:/models
+    restart: unless-stopped
+
+  migrate:
+    image: rag/api:dev
+    build: *python-build
+    command: [alembic, upgrade, head]
+    environment: *python-environment
+    <<: *python-security
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: rag/api:dev
+    build: *python-build
+    command: [rag-api]
+    environment: *python-environment
+    <<: *python-security
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      qdrant:
+        condition: service_started
+      ollama-runtime:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 12
+    restart: unless-stopped
+
+  ingestion-worker:
+    image: rag/ingestion-worker:dev
+    build: *python-build
+    command: [rag-ingestion-worker]
+    environment: *python-environment
+    <<: *python-security
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+
+  drive-sync:
+    image: rag/drive-sync:dev
+    build: *python-build
+    command: [rag-sync-worker]
+    environment: *python-environment
+    <<: *python-security
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  frontend:
+    image: rag/frontend:dev
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      target: runtime
+      args:
+        NEXT_PUBLIC_APP_URL: http://localhost:3000
+    environment:
+      RAG_API_URL: http://api:8080
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    read_only: true
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+      - /app/.next/cache:rw,noexec,nosuid,size=128m,uid=1000,gid=1000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   qdrant_data:
   ollama_data:
+  rag_data:

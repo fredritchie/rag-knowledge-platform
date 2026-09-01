@@ -193,7 +193,9 @@ def test_drive_change_classification_handles_all_required_actions() -> None:
     assert _classify_change(unchanged, previous) == "UPDATE"
 
 
-def test_drive_create_reuses_existing_tenant_content_without_duplicate_version(tmp_path: Path) -> None:
+def test_drive_create_reuses_existing_tenant_content_without_duplicate_version(
+    tmp_path: Path,
+) -> None:
     settings = _settings(tmp_path)
     database = Database(settings.database)
     asyncio.run(_seed(database))
@@ -323,12 +325,14 @@ def test_admin_can_control_drive_connection_and_view_queue_health(tmp_path: Path
         )
         assert created.status_code == 201, created.text
         connection_id = created.json()["connection_id"]
-        assert client.post(
-            f"/api/v1/admin/drive/connections/{connection_id}/pause"
-        ).json()["status"] == "PAUSED"
-        assert client.post(
-            f"/api/v1/admin/drive/connections/{connection_id}/resume"
-        ).json()["status"] == "ACTIVE"
+        assert (
+            client.post(f"/api/v1/admin/drive/connections/{connection_id}/pause").json()["status"]
+            == "PAUSED"
+        )
+        assert (
+            client.post(f"/api/v1/admin/drive/connections/{connection_id}/resume").json()["status"]
+            == "ACTIVE"
+        )
         deleted = client.delete(f"/api/v1/admin/drive/connections/{connection_id}/link")
         assert deleted.status_code == 200, deleted.text
         assert deleted.json()["status"] == "DELETED"

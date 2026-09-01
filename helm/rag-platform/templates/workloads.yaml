@@ -1,0 +1,82 @@
+{{- $root := . -}}
+{{- $workloads := list
+  (dict "name" "frontend" "image" "frontend" "replicas" .Values.replicaCount.frontend "port" 3000 "command" (list) "probe" "/")
+  (dict "name" "api" "image" "api" "replicas" .Values.replicaCount.api "port" 8080 "command" (list "rag-api") "probe" "/live")
+  (dict "name" "ingestion-worker" "image" "ingestionWorker" "replicas" .Values.replicaCount.ingestionWorker "port" 0 "command" (list "rag-ingestion-worker") "probe" "")
+  (dict "name" "drive-sync" "image" "driveSync" "replicas" .Values.replicaCount.driveSync "port" 0 "command" (list "rag-sync-worker") "probe" "")
+-}}
+{{- range $workload := $workloads }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rag-platform.fullname" $root }}-{{ $workload.name }}
+  labels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: {{ $workload.name }}}
+spec:
+  replicas: {{ $workload.replicas }}
+  selector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: {{ $workload.name }}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: {{ $workload.name }}}
+    spec:
+      serviceAccountName: {{ include "rag-platform.serviceAccountName" $root }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ if eq $workload.name "frontend" }}1000{{ else }}10001{{ end }}
+        runAsGroup: {{ if eq $workload.name "frontend" }}1000{{ else }}10001{{ end }}
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: {{ $workload.name }}
+          image: {{ include "rag-platform.image" (dict "Values" $root.Values "image" $workload.image) }}
+          imagePullPolicy: IfNotPresent
+          {{- if $workload.command }}
+          command: {{ toJson $workload.command }}
+          {{- end }}
+          env:
+            {{- if ne $workload.name "frontend" }}
+            - {name: RAG__API__HOST, value: "0.0.0.0"}
+            - {name: RAG__QDRANT__URL, value: {{ $root.Values.config.qdrantUrl | quote }}}
+            - {name: RAG__GENERATION__BASE_URL, value: {{ $root.Values.config.ollamaUrl | quote }}}
+            - {name: RAG__DRIVE__ENABLED, value: {{ if eq $workload.name "drive-sync" }}"true"{{ else }}"false"{{ end }}}
+            - name: RAG__DATABASE__URL
+              valueFrom:
+                secretKeyRef: {name: {{ $root.Values.secret.name }}, key: {{ $root.Values.secret.databaseUrlKey }}}
+            {{- else }}
+            - {name: RAG_API_URL, value: {{ $root.Values.config.apiUrl | quote }}}
+            - {name: NEXT_PUBLIC_APP_URL, value: {{ $root.Values.config.appUrl | quote }}}
+            {{- end }}
+          {{- if gt (int $workload.port) 0 }}
+          ports:
+            - {name: http, containerPort: {{ $workload.port }}}
+          {{- end }}
+          {{- if $workload.probe }}
+          livenessProbe:
+            httpGet: {path: {{ $workload.probe }}, port: http}
+            initialDelaySeconds: 15
+          readinessProbe:
+            httpGet: {path: {{ if eq $workload.name "api" }}/ready{{ else }}{{ $workload.probe }}{{ end }}, port: http}
+            initialDelaySeconds: 10
+          {{- end }}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            {{- if ne $workload.name "frontend" }}
+            - {name: data, mountPath: /var/lib/rag}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 256Mi}
+        {{- if ne $workload.name "frontend" }}
+        - name: data
+          emptyDir: {sizeLimit: 1Gi}
+        {{- end }}
+{{- end }}
+

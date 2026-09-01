@@ -14,7 +14,10 @@ router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
 
 def _pool_id(request: Request) -> str:
-    return request.app.state.settings.auth.user_pool_id or request.app.state.settings.auth.issuer.rstrip("/").rsplit("/", 1)[-1]
+    return (
+        request.app.state.settings.auth.user_pool_id
+        or request.app.state.settings.auth.issuer.rstrip("/").rsplit("/", 1)[-1]
+    )
 
 
 def _cognito(request: Request):
@@ -85,14 +88,19 @@ async def create_membership(
 
 
 @router.post("/invitations", response_model=UserOut, status_code=201)
-async def invite_user(body: UserInvitationCreate, request: Request, context: RequestContext = Depends(require_capability("MANAGE_USERS"))) -> User:
+async def invite_user(
+    body: UserInvitationCreate,
+    request: Request,
+    context: RequestContext = Depends(require_capability("MANAGE_USERS")),
+) -> User:
     session = request.state.db
     email = body.email.lower()
     if await session.scalar(select(User).where(User.email == email)):
         raise ConflictError("USER_EXISTS", "A platform user with this email already exists")
     response = await asyncio.to_thread(
         _cognito(request).admin_create_user,
-        UserPoolId=_pool_id(request), Username=email,
+        UserPoolId=_pool_id(request),
+        Username=email,
         UserAttributes=[
             {"Name": "email", "Value": email},
             {"Name": "email_verified", "Value": "true"},
@@ -104,19 +112,60 @@ async def invite_user(body: UserInvitationCreate, request: Request, context: Req
     subject = attributes.get("sub")
     if not subject:
         raise RuntimeError("Cognito did not return a user subject")
-    user = User(external_subject=subject, email=email, display_name=body.display_name, status="ACTIVE")
+    user = User(
+        external_subject=subject, email=email, display_name=body.display_name, status="ACTIVE"
+    )
     session.add(user)
     await session.flush()
-    session.add(TenantMembership(tenant_id=context.tenant_id, user_id=user.id, role=body.role, groups=[body.role], active=True))
-    add_audit_event(session, request, context, action="user.invited", resource_type="user", resource_id=user.id, details={"email": email, "role": body.role})
+    session.add(
+        TenantMembership(
+            tenant_id=context.tenant_id,
+            user_id=user.id,
+            role=body.role,
+            groups=[body.role],
+            active=True,
+        )
+    )
+    add_audit_event(
+        session,
+        request,
+        context,
+        action="user.invited",
+        resource_type="user",
+        resource_id=user.id,
+        details={"email": email, "role": body.role},
+    )
     return user
 
 
 @router.post("/{user_id}/password-reset", status_code=202)
-async def send_password_reset(user_id: str, request: Request, context: RequestContext = Depends(require_capability("MANAGE_USERS"))) -> dict[str, str]:
-    user = await request.state.db.scalar(select(User).join(TenantMembership, TenantMembership.user_id == User.id).where(User.id == user_id, TenantMembership.tenant_id == context.tenant_id, TenantMembership.active.is_(True)))
+async def send_password_reset(
+    user_id: str,
+    request: Request,
+    context: RequestContext = Depends(require_capability("MANAGE_USERS")),
+) -> dict[str, str]:
+    user = await request.state.db.scalar(
+        select(User)
+        .join(TenantMembership, TenantMembership.user_id == User.id)
+        .where(
+            User.id == user_id,
+            TenantMembership.tenant_id == context.tenant_id,
+            TenantMembership.active.is_(True),
+        )
+    )
     if user is None:
         raise NotFoundError("User", user_id)
-    await asyncio.to_thread(_cognito(request).admin_reset_user_password, UserPoolId=_pool_id(request), Username=user.email)
-    add_audit_event(request.state.db, request, context, action="user.password_reset_sent", resource_type="user", resource_id=user.id)
+    await asyncio.to_thread(
+        _cognito(request).admin_reset_user_password,
+        UserPoolId=_pool_id(request),
+        Username=user.email,
+    )
+    add_audit_event(
+        request.state.db,
+        request,
+        context,
+        action="user.password_reset_sent",
+        resource_type="user",
+        resource_id=user.id,
+    )
     return {"user_id": user.id, "status": "RESET_EMAIL_SENT"}

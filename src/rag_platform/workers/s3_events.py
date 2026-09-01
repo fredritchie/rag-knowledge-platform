@@ -23,9 +23,9 @@ from rag_platform.application.db.models import (
 )
 from rag_platform.application.db.session import Database
 from rag_platform.config import Settings, load_settings
-from rag_platform.security.rag import analyze_content
 from rag_platform.ingestion.service import IngestionService
 from rag_platform.retrieval.service import RetrievalService
+from rag_platform.security.rag import analyze_content
 from rag_platform.workers.ingestion import IngestionWorker, ProcessingResult
 
 logger = logging.getLogger("rag_platform.s3_event_worker")
@@ -53,9 +53,7 @@ class StorageEvent:
         event_id = payload.get("id")
         event_type = payload.get("detail-type")
         object_key = object_detail.get("key")
-        if payload.get("source") != "aws.s3" or not all(
-            [event_id, event_type, bucket, object_key]
-        ):
+        if payload.get("source") != "aws.s3" or not all([event_id, event_type, bucket, object_key]):
             raise InvalidStorageEvent("Message is not a valid S3 EventBridge event")
         return cls(
             event_id=str(event_id),
@@ -182,9 +180,7 @@ class S3PipelineProcessor:
             )
             chunks = ingestion.catalog.get_chunks(document.id)
             suspicious = [
-                analysis
-                for chunk in chunks
-                if (analysis := analyze_content(chunk.text)).suspicious
+                analysis for chunk in chunks if (analysis := analyze_content(chunk.text)).suspicious
             ]
             if suspicious:
                 logger.warning(

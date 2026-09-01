@@ -1,0 +1,47 @@
+images:
+  frontend:
+    repository: 000000000000.dkr.ecr.us-east-1.amazonaws.com/rag/frontend
+    digest: ""
+  api:
+    repository: 000000000000.dkr.ecr.us-east-1.amazonaws.com/rag/api
+    digest: ""
+  ingestionWorker:
+    repository: 000000000000.dkr.ecr.us-east-1.amazonaws.com/rag/ingestion-worker
+    digest: ""
+  driveSync:
+    repository: 000000000000.dkr.ecr.us-east-1.amazonaws.com/rag/drive-sync
+    digest: ""
+  ollamaRuntime:
+    repository: 000000000000.dkr.ecr.us-east-1.amazonaws.com/rag/ollama-runtime
+    digest: ""
+
+replicaCount:
+  frontend: 1
+  api: 2
+  ingestionWorker: 1
+  driveSync: 1
+  ollamaRuntime: 1
+
+config:
+  qdrantUrl: http://qdrant:6333
+  ollamaUrl: http://rag-platform-ollama-runtime:11434
+  apiUrl: http://rag-platform-api:8080
+  appUrl: https://rag.example.com
+
+secret:
+  name: rag-platform-runtime
+  databaseUrlKey: database-url
+
+serviceAccount:
+  create: true
+  name: ""
+
+ollama:
+  storage: 20Gi
+
+admissionPolicy:
+  enabled: false
+  imagePattern: "*.dkr.ecr.*.amazonaws.com/rag/*"
+  certificateIdentity: "https://github.com/replace-me/production-rag-knowledge-platform/.github/workflows/supply-chain.yml@refs/heads/main"
+  certificateIssuer: "https://token.actions.githubusercontent.com"
+

@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "rag-platform.fullname" . }}-ollama
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: {storage: {{ .Values.ollama.storage }}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rag-platform.fullname" . }}-ollama-runtime
+spec:
+  replicas: {{ .Values.replicaCount.ollamaRuntime }}
+  selector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: ollama-runtime}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: ollama-runtime}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: ollama-runtime
+          image: {{ include "rag-platform.image" (dict "Values" .Values "image" "ollamaRuntime") }}
+          ports: [{name: http, containerPort: 11434}]
+          livenessProbe: {httpGet: {path: /api/tags, port: http}, initialDelaySeconds: 20}
+          readinessProbe: {httpGet: {path: /api/tags, port: http}, initialDelaySeconds: 10}
+          resources:
+            requests: {cpu: 500m, memory: 1Gi}
+            limits: {cpu: "4", memory: 8Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: models, mountPath: /models}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: models
+          persistentVolumeClaim: {claimName: {{ include "rag-platform.fullname" . }}-ollama}
+        - name: tmp
+          emptyDir: {sizeLimit: 256Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rag-platform.fullname" . }}-ollama-runtime
+spec:
+  selector: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: ollama-runtime}
+  ports: [{name: http, port: 11434, targetPort: http}]
+

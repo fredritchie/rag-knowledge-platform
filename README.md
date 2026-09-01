@@ -16,6 +16,7 @@ Detailed implementation and operating guides:
 - [Phase 8 — Document Lifecycle and Manual Upload](docs/phases/phase-8-document-lifecycle-upload/README.md)
 - [Phase 9 — Event-Driven S3 Ingestion](docs/phases/phase-9-event-driven-s3-ingestion/README.md)
 - [Phase 10 — Google Drive Integration](docs/phases/phase-10-google-drive-integration/README.md)
+- [Phase 12 — Containerization and Supply-Chain Security](docs/phases/phase-12-container-supply-chain/README.md)
 
 ## What is implemented
 
@@ -79,27 +80,19 @@ Detailed implementation and operating guides:
 
 ### Run the application stack
 
-Configure Cognito and S3 placeholders in `config/rag.yaml` or environment variables, then:
+Build and start the complete local container stack, including migrations, API, workers, Ollama,
+and the frontend:
 
 ```bash
 make services-up
-make migrate
-rag-api
+make services-ps
 ```
 
-In separate terminals, after configuring the Phase 9 queue and Phase 10 Drive credentials:
+The local Compose profile is isolated from the configured AWS queue and uses deterministic
+embeddings. To install the default local model:
 
 ```bash
-rag-s3-event-worker
-rag-sync-worker
-```
-
-Start the frontend:
-
-```bash
-make frontend-install
-cp apps/web/.env.example apps/web/.env.local
-make frontend-dev
+docker compose exec ollama-runtime ollama pull llama3.2:3b
 ```
 
 The production API is available on `http://127.0.0.1:8080`, OpenAPI on `/docs`, and Next.js on
@@ -123,7 +116,7 @@ Install the local embedding and reranking models, then start Qdrant and Ollama:
 ```bash
 make install-ml
 make services-up
-docker compose exec ollama ollama pull llama3.2:3b
+docker compose exec ollama-runtime ollama pull llama3.2:3b
 ```
 
 All runtime choices live in `config/rag.yaml`. Override any value without editing Python by
