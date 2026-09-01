@@ -1,0 +1,8 @@
+aws_region        = "ap-south-1"
+name              = "fred-rag-drive-sync-12345"
+bucket_arn        = "arn:aws:s3:::fred-rag-unique-bucket-12345"
+queue_arn         = "arn:aws:sqs:ap-south-1:008971653023:fred-rag-unique-event-12345"
+queue_kms_key_arn = "arn:aws:kms:ap-south-1:008971653023:key/6e2d6776-d523-4ddd-8ba9-afec9ed54710"
+worker_role_name  = "fred-rag-unique-bucket-12345-document-app"
+secret_name       = "fred-rag-google-drive-oauth-12345"
+canonical_prefix  = "tenants/*/drive/*"
