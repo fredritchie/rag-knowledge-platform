@@ -88,11 +88,11 @@ api:
 
 auth:
   enabled: true
-  issuer: https://cognito-idp.us-east-1.amazonaws.com/replace-me
-  audience: replace-me-client-id
+  issuer: https://cognito-idp.ap-south-1.amazonaws.com/ap-south-1_VxfKOZxdu
+  audience: 6i9mt7qu3hol5gjt5ovvir2sgj
   jwks_url: null
   algorithms: [RS256]
-  jwks_cache_seconds: 3600
+  jwks_cache_seconds: 30
   clock_skew_seconds: 30
   tenant_claim: custom:tenant_id
   role_claim: cognito:groups
@@ -100,8 +100,8 @@ auth:
 
 storage:
   provider: s3
-  bucket: replace-me-rag-documents
-  region: us-east-1
+  bucket: fred-rag-unique-bucket-12345
+  region: ap-south-1
   endpoint_url: null
   upload_expiry_seconds: 900
   server_side_encryption: AES256
@@ -120,9 +120,9 @@ worker:
   heartbeat_seconds: 30
 
 event_ingestion:
-  enabled: false
-  queue_url: ""
-  dlq_url: ""
+  enabled: true
+  queue_url: "https://sqs.ap-south-1.amazonaws.com/008971653023/fred-rag-unique-event-12345"
+  dlq_url: "https://sqs.ap-south-1.amazonaws.com/008971653023/fred-rag-unique-event-12345-dlq"
   wait_time_seconds: 20
   visibility_timeout_seconds: 900
   visibility_heartbeat_seconds: 120

@@ -74,6 +74,11 @@ class IngestionWorker:
                     .where(
                         IngestionJob.status == "QUEUED",
                         IngestionJob.attempts < self.settings.worker.max_attempts,
+                        *(
+                            [IngestionJob.job_type.in_(["REINDEX", "DELETE"])]
+                            if self.settings.event_ingestion.enabled
+                            else []
+                        ),
                     )
                     .order_by(IngestionJob.created_at)
                     .limit(self.settings.worker.batch_size)
@@ -207,10 +212,15 @@ class IngestionWorker:
 
 
 async def _main() -> None:
+    # Imported lazily to avoid a module cycle: the event worker uses this
+    # orchestration class, while this maintenance worker reuses its concrete
+    # S3 parser/indexer for reindex and delete jobs.
+    from rag_platform.workers.s3_events import S3PipelineProcessor
+
     settings = load_settings()
     database = Database(settings.database)
     try:
-        await IngestionWorker(settings, database, UnconfiguredProcessor()).run_forever()
+        await IngestionWorker(settings, database, S3PipelineProcessor(settings)).run_forever()
     finally:
         await database.dispose()
 
