@@ -9,7 +9,18 @@ readonly OLLAMA_EXCEPTION_EXPIRY="2026-10-02"
 readonly OLLAMA_IGNORE_FILE="${ROOT_DIR}/security/trivy/ollama-runtime-v0.33.2.trivyignore"
 
 mkdir -p "${RESULTS_DIR}"
+if [[ -n "${RAG_SECURITY_TMPDIR:-}" ]]; then
+  mkdir -p "${RAG_SECURITY_TMPDIR}"
+fi
 cd "${ROOT_DIR}"
+
+syft_with_tmpdir() {
+  if [[ -n "${RAG_SECURITY_TMPDIR:-}" ]]; then
+    TMPDIR="${RAG_SECURITY_TMPDIR}" syft "$@"
+  else
+    syft "$@"
+  fi
+}
 
 required_tools=(gitleaks bandit pip-audit npm checkov tflint helm kubeconform trivy syft cosign)
 missing_tools=()
@@ -47,13 +58,14 @@ helm template rag-platform helm/rag-platform \
   > "${RESULTS_DIR}/rendered.yaml"
 kubeconform -strict -summary -ignore-missing-schemas "${RESULTS_DIR}/rendered.yaml"
 trivy fs --skip-dirs .venv --skip-dirs security-env --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
-syft dir:. --exclude './.venv/**' --exclude './security-env/**' -o cyclonedx-json="${RESULTS_DIR}/source.cdx.json"
+syft_with_tmpdir dir:. --exclude './.venv/**' --exclude './security-env/**' \
+  -o cyclonedx-json="${RESULTS_DIR}/source.cdx.json"
 
 images=(rag/frontend:dev rag/api:dev rag/ingestion-worker:dev rag/drive-sync:dev "${OLLAMA_IMAGE}")
 for image in "${images[@]}"; do
   if docker image inspect "${image}" >/dev/null 2>&1; then
     safe_name="${image//[\/:]/-}"
-    syft "${image}" -o cyclonedx-json="${RESULTS_DIR}/${safe_name}.cdx.json"
+    syft_with_tmpdir "${image}" -o cyclonedx-json="${RESULTS_DIR}/${safe_name}.cdx.json"
     if [[ "${image}" == "${OLLAMA_IMAGE}" ]]; then
       if [[ "$(date -u +%F)" > "${OLLAMA_EXCEPTION_EXPIRY}" ]]; then
         echo "Ollama vulnerability exception expired on ${OLLAMA_EXCEPTION_EXPIRY}" >&2

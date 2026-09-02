@@ -30,6 +30,8 @@ artifact, ECR push, then digest signing and SBOM attestation. ECR repositories m
 
 The local `make security-scan` target runs Gitleaks, Bandit, pip-audit, npm audit, Checkov, TFLint,
 Helm lint, kubeconform, Trivy, Syft, and optional Cosign verification. CodeQL runs in GitHub Actions.
+On hosts where Docker storage is relocated to a separate filesystem, set `RAG_SECURITY_TMPDIR` to a
+writable directory on that filesystem so Syft does not extract image layers under a full `/tmp`.
 
 ## Ollama vulnerability exception
 
