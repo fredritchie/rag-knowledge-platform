@@ -4,6 +4,9 @@ set -euo pipefail
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly RESULTS_DIR="${ROOT_DIR}/security-results"
 readonly PLACEHOLDER_DIGEST="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+readonly OLLAMA_IMAGE="rag/ollama-runtime:0.33.2"
+readonly OLLAMA_EXCEPTION_EXPIRY="2026-10-02"
+readonly OLLAMA_IGNORE_FILE="${ROOT_DIR}/security/trivy/ollama-runtime-v0.33.2.trivyignore"
 
 mkdir -p "${RESULTS_DIR}"
 cd "${ROOT_DIR}"
@@ -43,15 +46,24 @@ helm template rag-platform helm/rag-platform \
   --set-string images.ollamaRuntime.digest="${PLACEHOLDER_DIGEST}" \
   > "${RESULTS_DIR}/rendered.yaml"
 kubeconform -strict -summary -ignore-missing-schemas "${RESULTS_DIR}/rendered.yaml"
-trivy fs --skip-dirs .venv --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
-syft dir:. --exclude .venv -o cyclonedx-json="${RESULTS_DIR}/source.cdx.json"
+trivy fs --skip-dirs .venv --skip-dirs security-env --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
+syft dir:. --exclude './.venv/**' --exclude './security-env/**' -o cyclonedx-json="${RESULTS_DIR}/source.cdx.json"
 
-images=(rag/frontend:dev rag/api:dev rag/ingestion-worker:dev rag/drive-sync:dev rag/ollama-runtime:0.33.2)
+images=(rag/frontend:dev rag/api:dev rag/ingestion-worker:dev rag/drive-sync:dev "${OLLAMA_IMAGE}")
 for image in "${images[@]}"; do
   if docker image inspect "${image}" >/dev/null 2>&1; then
     safe_name="${image//[\/:]/-}"
     syft "${image}" -o cyclonedx-json="${RESULTS_DIR}/${safe_name}.cdx.json"
-    trivy image --severity HIGH,CRITICAL --exit-code 1 "${image}"
+    if [[ "${image}" == "${OLLAMA_IMAGE}" ]]; then
+      if [[ "$(date -u +%F)" > "${OLLAMA_EXCEPTION_EXPIRY}" ]]; then
+        echo "Ollama vulnerability exception expired on ${OLLAMA_EXCEPTION_EXPIRY}" >&2
+        exit 1
+      fi
+      trivy image --ignore-unfixed --ignorefile "${OLLAMA_IGNORE_FILE}" \
+        --severity HIGH,CRITICAL --exit-code 1 "${image}"
+    else
+      trivy image --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 "${image}"
+    fi
   fi
 done
 

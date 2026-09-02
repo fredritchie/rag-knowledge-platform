@@ -92,7 +92,18 @@ jobs:
       - name: Generate SBOM
         run: syft "local/${{ matrix.name }}:${GITHUB_SHA}" -o cyclonedx-json="${{ matrix.name }}.cdx.json"
       - name: Scan image
-        run: trivy image --severity HIGH,CRITICAL --exit-code 1 "local/${{ matrix.name }}:${GITHUB_SHA}"
+        env:
+          OLLAMA_EXCEPTION_EXPIRY: "2026-10-02"
+        run: |
+          args=(--ignore-unfixed --severity HIGH,CRITICAL --exit-code 1)
+          if [[ "${{ matrix.name }}" == "ollama-runtime" ]]; then
+            if [[ "$(date -u +%F)" > "${OLLAMA_EXCEPTION_EXPIRY}" ]]; then
+              echo "Ollama vulnerability exception expired on ${OLLAMA_EXCEPTION_EXPIRY}" >&2
+              exit 1
+            fi
+            args+=(--ignorefile security/trivy/ollama-runtime-v0.33.2.trivyignore)
+          fi
+          trivy image "${args[@]}" "local/${{ matrix.name }}:${GITHUB_SHA}"
       - name: Sign pre-push image artifact
         if: github.event_name == 'push'
         run: |

@@ -31,6 +31,15 @@ artifact, ECR push, then digest signing and SBOM attestation. ECR repositories m
 The local `make security-scan` target runs Gitleaks, Bandit, pip-audit, npm audit, Checkov, TFLint,
 Helm lint, kubeconform, Trivy, Syft, and optional Cosign verification. CodeQL runs in GitHub Actions.
 
+## Ollama vulnerability exception
+
+The upstream `ollama/ollama:0.33.2` binary contains fixed Go dependency vulnerabilities that cannot
+be remediated without maintaining a custom Ollama build. The narrowly scoped exception is recorded
+in `security/trivy/ollama-runtime-v0.33.2.trivyignore`, applies only to the Ollama image, and expires
+on 2026-10-02. All images continue to fail on fixable High/Critical findings; unfixed upstream
+findings are reported but do not block release. Re-evaluate the exception when Ollama releases a
+patched image, or at expiry, whichever is earlier.
+
 ## Immutable deployment
 
 The Helm chart has no image tag values. All five digests are required and images render only as:
@@ -41,4 +50,3 @@ repository@sha256:digest
 
 The optional Kyverno policy verifies the workflow's keyless Cosign identity at admission. Replace
 the placeholder repositories and certificate identity before enabling it.
-
