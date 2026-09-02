@@ -9,9 +9,9 @@ locals {
   ]
 }
 
-# checkov:skip=CKV_AWS_109: AWS KMS key policies require the account-root principal to retain key-administration access.
-# checkov:skip=CKV_AWS_111: AWS KMS key policies require the account-root principal to retain key-administration access.
-# checkov:skip=CKV_AWS_356: In a KMS key policy, Resource "*" denotes this key and is required by AWS policy syntax.
+#checkov:skip=CKV_AWS_109: AWS KMS key policies require the account-root principal to retain key-administration access.
+#checkov:skip=CKV_AWS_111: AWS KMS key policies require the account-root principal to retain key-administration access.
+#checkov:skip=CKV_AWS_356: In a KMS key policy, Resource "*" denotes this key and is required by AWS policy syntax.
 data "aws_iam_policy_document" "sqs_key" {
   statement {
     sid       = "EnableAccountAdministration"
