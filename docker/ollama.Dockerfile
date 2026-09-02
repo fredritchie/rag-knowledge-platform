@@ -1,7 +1,5 @@
 # syntax=docker/dockerfile:1.7
-ARG OLLAMA_IMAGE=ollama/ollama:0.33.2@sha256:020e4134285e2ef4d8fd801234176de3b4faadc992a3eb06c8e66a2f9d4c4ba2
-
-FROM ${OLLAMA_IMAGE} AS verify
+FROM ollama/ollama:0.33.2@sha256:020e4134285e2ef4d8fd801234176de3b4faadc992a3eb06c8e66a2f9d4c4ba2 AS verify
 RUN ollama --version
 
 FROM verify AS runtime

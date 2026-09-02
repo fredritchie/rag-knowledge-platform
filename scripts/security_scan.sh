@@ -27,7 +27,7 @@ else
   pip-audit
 fi
 npm --prefix apps/web audit --audit-level=high
-checkov -d . --framework terraform dockerfile --quiet
+checkov -d . --framework terraform dockerfile --quiet --skip-path .venv --skip-path security-env
 tflint --recursive
 helm lint helm/rag-platform \
   --set-string images.frontend.digest="${PLACEHOLDER_DIGEST}" \

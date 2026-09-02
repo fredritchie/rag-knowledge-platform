@@ -1,7 +1,5 @@
 # syntax=docker/dockerfile:1.7
-ARG PYTHON_IMAGE=python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
-
-FROM ${PYTHON_IMAGE} AS source
+FROM python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS source
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -22,7 +20,7 @@ RUN python -m pip install --no-cache-dir '.[dev]' \
 FROM test AS build
 RUN python -m pip wheel --wheel-dir /wheels .
 
-FROM ${PYTHON_IMAGE} AS runtime
+FROM python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS runtime
 ARG APP_VERSION=dev
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="RAG Platform Python runtime" \

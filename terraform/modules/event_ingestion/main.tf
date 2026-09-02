@@ -1,5 +1,17 @@
 data "aws_caller_identity" "current" {}
+data "aws_partition" "current" {}
+data "aws_region" "current" {}
 
+locals {
+  sqs_queue_arns = [
+    for queue_name in [var.name, "${var.name}-dlq"] :
+    "arn:${data.aws_partition.current.partition}:sqs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:${queue_name}"
+  ]
+}
+
+# checkov:skip=CKV_AWS_109: AWS KMS key policies require the account-root principal to retain key-administration access.
+# checkov:skip=CKV_AWS_111: AWS KMS key policies require the account-root principal to retain key-administration access.
+# checkov:skip=CKV_AWS_356: In a KMS key policy, Resource "*" denotes this key and is required by AWS policy syntax.
 data "aws_iam_policy_document" "sqs_key" {
   statement {
     sid       = "EnableAccountAdministration"
@@ -26,6 +38,11 @@ data "aws_iam_policy_document" "sqs_key" {
       variable = "aws:SourceAccount"
       values   = [data.aws_caller_identity.current.account_id]
     }
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_cloudwatch_event_rule.s3.arn]
+    }
   }
 
   statement {
@@ -41,6 +58,11 @@ data "aws_iam_policy_document" "sqs_key" {
       test     = "StringEquals"
       variable = "kms:CallerAccount"
       values   = [data.aws_caller_identity.current.account_id]
+    }
+    condition {
+      test     = "ArnLike"
+      variable = "kms:EncryptionContext:aws:sqs:arn"
+      values   = local.sqs_queue_arns
     }
   }
 }

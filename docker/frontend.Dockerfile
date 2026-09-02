@@ -1,7 +1,5 @@
 # syntax=docker/dockerfile:1.7
-ARG NODE_IMAGE=node:24-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
-
-FROM ${NODE_IMAGE} AS dependencies
+FROM node:24-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS dependencies
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 COPY apps/web/package.json apps/web/package-lock.json ./
@@ -19,7 +17,7 @@ ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 RUN npm run build
 
-FROM ${NODE_IMAGE} AS runtime
+FROM node:24-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS runtime
 ARG APP_VERSION=dev
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="RAG Platform frontend" \
