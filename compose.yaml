@@ -63,7 +63,7 @@ services:
     security_opt: ["no-new-privileges:true"]
 
   ollama-runtime:
-    image: rag/ollama-runtime:0.11.4
+    image: rag/ollama-runtime:0.33.2
     build:
       context: .
       dockerfile: docker/ollama.Dockerfile

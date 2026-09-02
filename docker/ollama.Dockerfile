@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1.7
-ARG OLLAMA_IMAGE=ollama/ollama:0.11.4
+ARG OLLAMA_IMAGE=ollama/ollama:0.33.2@sha256:020e4134285e2ef4d8fd801234176de3b4faadc992a3eb06c8e66a2f9d4c4ba2
 
 FROM ${OLLAMA_IMAGE} AS verify
 RUN ollama --version
 
 FROM verify AS runtime
-ARG APP_VERSION=0.11.4
+ARG APP_VERSION=0.33.2
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="RAG Platform Ollama runtime" \
       org.opencontainers.image.version="${APP_VERSION}" \

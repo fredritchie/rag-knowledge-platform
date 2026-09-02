@@ -46,7 +46,7 @@ kubeconform -strict -summary -ignore-missing-schemas "${RESULTS_DIR}/rendered.ya
 trivy fs --skip-dirs .venv --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
 syft dir:. --exclude .venv -o cyclonedx-json="${RESULTS_DIR}/source.cdx.json"
 
-images=(rag/frontend:dev rag/api:dev rag/ingestion-worker:dev rag/drive-sync:dev rag/ollama-runtime:0.11.4)
+images=(rag/frontend:dev rag/api:dev rag/ingestion-worker:dev rag/drive-sync:dev rag/ollama-runtime:0.33.2)
 for image in "${images[@]}"; do
   if docker image inspect "${image}" >/dev/null 2>&1; then
     safe_name="${image//[\/:]/-}"

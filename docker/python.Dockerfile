@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-ARG PYTHON_IMAGE=python:3.12.11-slim-bookworm
+ARG PYTHON_IMAGE=python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
 
 FROM ${PYTHON_IMAGE} AS source
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -52,4 +52,3 @@ USER 10001:10001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD ["python", "-c", "import os; os.kill(1, 0)"]
 CMD ["rag-api"]
-
