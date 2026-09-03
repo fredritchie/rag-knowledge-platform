@@ -13,5 +13,6 @@ output "cognito_user_pool_id" { value = module.platform.cognito_user_pool_id }
 output "cognito_client_id" { value = module.platform.cognito_client_id }
 output "runtime_secret_arn" { value = module.platform.runtime_secret_arn }
 output "drift_role_arn" { value = module.platform.drift_role_arn }
+output "ecr_publisher_role_arn" { value = module.platform.ecr_publisher_role_arn }
 output "sns_topic_arn" { value = module.platform.sns_topic_arn }
 output "alb_target_group_arn" { value = module.platform.alb_target_group_arn }

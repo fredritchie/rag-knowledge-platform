@@ -110,6 +110,38 @@ resource "aws_iam_role_policy" "drift" {
   policy = data.aws_iam_policy_document.drift.json
 }
 
+resource "aws_iam_role" "ecr_publisher" {
+  name               = "${var.name}-ecr-publisher"
+  assume_role_policy = data.aws_iam_policy_document.github_assume.json
+  tags               = var.tags
+}
+
+data "aws_iam_policy_document" "ecr_publisher" {
+  statement {
+    sid       = "AuthenticateToEcr"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+  statement {
+    sid = "PublishImages"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:CompleteLayerUpload",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart",
+    ]
+    resources = var.ecr_repository_arns
+  }
+}
+
+resource "aws_iam_role_policy" "ecr_publisher" {
+  name   = "publish-images"
+  role   = aws_iam_role.ecr_publisher.id
+  policy = data.aws_iam_policy_document.ecr_publisher.json
+}
+
 resource "aws_cognito_user_pool" "this" {
   name                     = var.name
   username_attributes      = ["email"]
