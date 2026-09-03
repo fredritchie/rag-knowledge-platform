@@ -35,7 +35,7 @@ writable directory on that filesystem so Syft does not extract image layers unde
 
 ## Ollama vulnerability exception
 
-The upstream `ollama/ollama:0.33.2` binary contains fixed Go dependency vulnerabilities that cannot
+The upstream `ollama/ollama:0.33.2` binary contains fixable Go dependency vulnerabilities that cannot
 be remediated without maintaining a custom Ollama build. The narrowly scoped exception is recorded
 in `security/trivy/ollama-runtime-v0.33.2.trivyignore`, applies only to the Ollama image, and expires
 on 2026-10-02. All images continue to fail on fixable High/Critical findings; unfixed upstream
