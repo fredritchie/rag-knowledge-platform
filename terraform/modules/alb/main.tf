@@ -34,6 +34,7 @@ resource "aws_acm_certificate_validation" "this" {
 #trivy:ignore:AVD-AWS-0053 The public ALB is the architecture's only internet-facing application resource and is protected by WAF; domainless dev uses HTTP.
 resource "aws_lb" "this" {
   #checkov:skip=CKV2_AWS_76: The associated WAF uses AWSManagedRulesKnownBadInputsRuleSet, including Log4Shell inspection.
+  #checkov:skip=CKV2_AWS_20: Domainless dev has no certificate and conditionally uses HTTP; production enables the HTTPS listener.
   name                       = var.name
   internal                   = false
   load_balancer_type         = "application"
@@ -138,6 +139,7 @@ resource "aws_s3_bucket_policy" "logs" {
 }
 
 resource "aws_lb_target_group" "application" {
+  #checkov:skip=CKV_AWS_378: TLS terminates at the production ALB; traffic to private, security-group-restricted Kubernetes targets uses HTTP.
   name        = "${var.name}-app"
   port        = 8080
   protocol    = "HTTP"
@@ -170,7 +172,7 @@ resource "aws_lb_listener" "https" {
   }
 }
 
-#checkov:skip=CKV_AWS_2 Domainless dev deliberately uses the generated ALB hostname; staging and production require HTTPS.
+#checkov:skip=CKV_AWS_103: Domainless dev deliberately uses HTTP; staging and production require the TLS 1.2+ HTTPS listener above.
 #trivy:ignore:AVD-AWS-0054 Domainless dev uses this conditional listener only for infrastructure smoke tests; production enables HTTPS.
 resource "aws_lb_listener" "http" {
   count             = var.enable_https ? 0 : 1
