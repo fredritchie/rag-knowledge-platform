@@ -114,7 +114,7 @@ resource "aws_cognito_user_pool" "this" {
   name                     = var.name
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
-  deletion_protection      = "ACTIVE"
+  deletion_protection      = var.deletion_protection ? "ACTIVE" : "INACTIVE"
   mfa_configuration        = "OPTIONAL"
   software_token_mfa_configuration { enabled = true }
   password_policy {

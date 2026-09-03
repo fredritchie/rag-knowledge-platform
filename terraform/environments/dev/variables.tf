@@ -8,8 +8,20 @@ variable "single_nat_gateway" {
   type    = bool
   default = false
 }
-variable "domain_name" { type = string }
-variable "hosted_zone_id" { type = string }
+variable "enable_https" {
+  type    = bool
+  default = true
+}
+variable "domain_name" {
+  type     = string
+  default  = null
+  nullable = true
+}
+variable "hosted_zone_id" {
+  type     = string
+  default  = null
+  nullable = true
+}
 variable "github_repository" { type = string }
 variable "github_oidc_provider_arn" { type = string }
 variable "state_bucket_arn" { type = string }

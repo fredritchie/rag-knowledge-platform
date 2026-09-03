@@ -13,6 +13,7 @@ module "platform" {
   public_subnet_cidrs      = var.public_subnet_cidrs
   private_subnet_cidrs     = var.private_subnet_cidrs
   single_nat_gateway       = var.single_nat_gateway
+  enable_https             = var.enable_https
   domain_name              = var.domain_name
   hosted_zone_id           = var.hosted_zone_id
   github_repository        = var.github_repository

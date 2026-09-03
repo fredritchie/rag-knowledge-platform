@@ -170,13 +170,13 @@ resource "aws_flow_log" "this" {
 resource "aws_security_group" "alb" {
   #checkov:skip=CKV2_AWS_5: Attached to the ALB in the edge module.
   name_prefix = "${var.name}-alb-"
-  description = "Public HTTPS entrypoint"
+  description = "Public ALB entrypoint"
   vpc_id      = aws_vpc.this.id
   ingress {
-    description = "HTTPS from the internet"
+    description = "ALB listener from the internet"
     protocol    = "tcp"
-    from_port   = 443
-    to_port     = 443
+    from_port   = var.alb_ingress_port
+    to_port     = var.alb_ingress_port
     cidr_blocks = ["0.0.0.0/0"]
   }
   egress {

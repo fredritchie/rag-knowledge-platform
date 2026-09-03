@@ -10,6 +10,10 @@ variable "state_kms_key_arn" { type = string }
 variable "sns_topic_arn" { type = string }
 variable "callback_urls" { type = list(string) }
 variable "logout_urls" { type = list(string) }
+variable "deletion_protection" {
+  type    = bool
+  default = true
+}
 variable "tags" {
   type    = map(string)
   default = {}

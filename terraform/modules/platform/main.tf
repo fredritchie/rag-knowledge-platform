@@ -16,6 +16,7 @@ module "vpc" {
   public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
   single_nat_gateway   = var.single_nat_gateway
+  alb_ingress_port     = var.enable_https ? 443 : 80
   tags                 = local.tags
 }
 
@@ -61,8 +62,9 @@ module "iam" {
   state_bucket_arn         = var.state_bucket_arn
   state_kms_key_arn        = var.state_kms_key_arn
   sns_topic_arn            = module.monitoring.sns_topic_arn
-  callback_urls            = ["https://${var.domain_name}/auth/callback"]
-  logout_urls              = ["https://${var.domain_name}/login"]
+  callback_urls            = var.enable_https ? ["https://${var.domain_name}/auth/callback"] : ["http://localhost:3000/auth/callback"]
+  logout_urls              = var.enable_https ? ["https://${var.domain_name}/login"] : ["http://localhost:3000/login"]
+  deletion_protection      = var.deletion_protection
   tags                     = local.tags
 }
 
@@ -98,6 +100,7 @@ module "database" {
 module "edge" {
   source                = "../alb"
   name                  = "${local.name}-alb"
+  enable_https          = var.enable_https
   domain_name           = var.domain_name
   hosted_zone_id        = var.hosted_zone_id
   vpc_id                = module.vpc.vpc_id

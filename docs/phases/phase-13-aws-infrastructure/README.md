@@ -2,11 +2,17 @@
 
 The platform now has a reusable, three-AZ AWS foundation for dev, staging, and production. Public subnets contain only the internet-facing ALB and NAT gateways. Application, Qdrant, GPU, and PostgreSQL capacity stays private.
 
-Provisioned services include VPC networking and encrypted flow logs; private EKS general, Qdrant, and GPU pools; ALB, ACM, Route53, and WAF; encrypted S3, SQS/DLQ, Aurora, and ECR; Cognito and Secrets Manager; and CloudWatch/SNS monitoring.
+Provisioned services include VPC networking and encrypted flow logs; private EKS general, Qdrant, and GPU pools; ALB and WAF with optional ACM/Route53 DNS; encrypted S3, SQS/DLQ, Aurora, and ECR; Cognito and Secrets Manager; and CloudWatch/SNS monitoring.
 
 Terraform creates the ALB target group but does not register public node targets. A later Kubernetes/GitOps phase must deploy workloads and bind private services. Runtime secret values are populated outside Terraform so plaintext values never enter state.
 
 State locking uses Terraform's S3 lockfile support. The bootstrap root is separate because a backend cannot create itself. Drift is reported through a plan artifact, GitHub issue, and SNS, and is never repaired automatically.
+
+Dev is intentionally domainless: `enable_https = false` exposes the WAF-associated ALB listener on
+HTTP and reports the generated ALB hostname. This is suitable only for infrastructure smoke tests.
+Staging and production must use HTTPS with a DNS zone capable of creating ACM validation CNAMEs and
+an alias or CNAME to the ALB. DuckDNS supports A/AAAA and TXT updates but not those required CNAME or
+alias records, so it cannot satisfy the production ACM/ALB exit criterion by itself.
 
 ## Teardown and cost shutdown
 
@@ -61,11 +67,11 @@ Phase 13 is complete only when all of the following criteria are satisfied.
 
 ### Public edge and operations
 
-- Route53 resolves the application hostname to the public ALB, and the ACM certificate validates successfully.
+- For HTTPS environments, Route53 resolves the application hostname to the public ALB and the ACM certificate validates successfully. Domainless dev resolves through the generated ALB hostname.
 - HTTPS reaches the ALB through WAF; no Kubernetes node, Qdrant endpoint, GPU node, or database endpoint is directly internet-accessible.
 - The WAF managed-rule groups, rate limit, request logging, and ALB access logging are active.
 - A reviewed `terraform plan` succeeds for every environment before deployment.
-- At least the dev environment has been applied and smoke-tested in AWS, including HTTPS, node registration, database connectivity, S3-to-SQS delivery, DLQ behavior, and alarm delivery.
+- At least the dev environment has been applied and smoke-tested in AWS, including its WAF-protected ALB endpoint, node registration, database connectivity, S3-to-SQS delivery, DLQ behavior, and alarm delivery. HTTPS is mandatory before production sign-off.
 - The nightly drift workflow demonstrates all three outcomes: `0` reports no drift, `2` uploads a plan and creates a GitHub issue plus SNS alert, and `1` uploads diagnostics and fails the job.
 - The drift workflow contains no `terraform apply` or automatic repair path.
 

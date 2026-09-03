@@ -26,6 +26,10 @@ variable "single_nat_gateway" {
   default     = false
   description = "Use one NAT gateway to reduce non-production cost; production should use one per AZ."
 }
+variable "alb_ingress_port" {
+  type    = number
+  default = 443
+}
 variable "flow_log_retention_days" {
   type    = number
   default = 30

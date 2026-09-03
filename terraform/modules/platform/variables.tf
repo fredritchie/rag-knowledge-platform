@@ -5,8 +5,15 @@ variable "vpc_cidr" { type = string }
 variable "public_subnet_cidrs" { type = list(string) }
 variable "private_subnet_cidrs" { type = list(string) }
 variable "single_nat_gateway" { type = bool }
-variable "domain_name" { type = string }
-variable "hosted_zone_id" { type = string }
+variable "enable_https" { type = bool }
+variable "domain_name" {
+  type     = string
+  nullable = true
+}
+variable "hosted_zone_id" {
+  type     = string
+  nullable = true
+}
 variable "github_repository" { type = string }
 variable "github_oidc_provider_arn" { type = string }
 variable "state_bucket_arn" { type = string }

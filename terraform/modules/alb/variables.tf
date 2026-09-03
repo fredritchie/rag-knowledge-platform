@@ -1,6 +1,18 @@
 variable "name" { type = string }
-variable "domain_name" { type = string }
-variable "hosted_zone_id" { type = string }
+variable "enable_https" {
+  type    = bool
+  default = true
+}
+variable "domain_name" {
+  type     = string
+  default  = null
+  nullable = true
+}
+variable "hosted_zone_id" {
+  type     = string
+  default  = null
+  nullable = true
+}
 variable "vpc_id" { type = string }
 variable "public_subnet_ids" { type = list(string) }
 variable "security_group_id" { type = string }
