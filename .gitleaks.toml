@@ -1,0 +1,15 @@
+title = "RAG platform secret scanning"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated and dependency paths only"
+paths = [
+  '''apps/web/package-lock\.json''',
+  '''(^|/)\.next/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)\.venv/''',
+  '''(^|/)\.terraform/''',
+  '''security-results/''',
+]

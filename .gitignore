@@ -12,4 +12,17 @@ dist/
 rag_pdf_corpus/
 *.part
 .DS_Store
+._*
 .env
+node_modules/
+.next/
+.terraform/
+*.tfstate
+*.tfstate.*
+backend.hcl
+terraform.tfvars
+*.tfplan
+plan.txt
+plan-command.txt
+.vscode/
+security-results/

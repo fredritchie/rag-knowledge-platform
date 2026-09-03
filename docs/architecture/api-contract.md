@@ -1,6 +1,13 @@
-# Initial API Contract
+# API Contract
 
-The HTTP API is not implemented in Phase 0/1; this file fixes the first public resource boundaries so later FastAPI work does not invent endpoints ad hoc.
+The developer UI implements two intentionally temporary endpoints:
+
+```text
+POST /api/search  {"query": "...", "top_k": 5}
+POST /api/ask     {"query": "..."}
+```
+
+The future authenticated public API retains these versioned resource boundaries:
 
 ```text
 /api/v1/auth/*
@@ -12,6 +19,23 @@ The HTTP API is not implemented in Phase 0/1; this file fixes the first public r
 /api/v1/search/*
 /api/v1/admin/*
 /api/v1/health/*
+```
+
+Phase 5 implements the versioned boundaries as modular FastAPI routers. Kubernetes probes remain
+unversioned at `GET /live` and `GET /ready`; liveness is process-only while readiness checks
+configured critical dependencies. Interactive OpenAPI is served at `/docs`.
+
+Phase 9–10 add the following Admin-only tenant-scoped operations:
+
+```text
+GET    /api/v1/admin/ingestion/queue-health
+POST   /api/v1/admin/drive/connections
+GET    /api/v1/admin/drive/connections
+POST   /api/v1/admin/drive/connections/{id}/force-sync
+POST   /api/v1/admin/drive/connections/{id}/pause
+POST   /api/v1/admin/drive/connections/{id}/resume
+DELETE /api/v1/admin/drive/connections/{id}
+GET    /api/v1/admin/drive/connections/{id}/errors
 ```
 
 ## Resource rules

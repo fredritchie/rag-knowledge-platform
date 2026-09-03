@@ -79,6 +79,7 @@ def build_chunks(
             records.append(
                 ChunkRecord(
                     chunk_id=chunk_id,
+                    tenant_id=document.tenant_id,
                     document_id=document.document_id,
                     filename=document.filename,
                     page=page.page_number,

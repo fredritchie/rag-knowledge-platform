@@ -1,0 +1,142 @@
+name: container-supply-chain
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  source-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: python -m pip install '.[dev]' bandit==1.8.6 pip-audit==2.9.0
+      - run: ruff check src tests
+      - run: pytest -m 'not slow'
+      - run: bandit -q -r src
+      - run: pip-audit
+      - uses: actions/setup-node@v4
+        with: {node-version: "24", cache: npm, cache-dependency-path: apps/web/package-lock.json}
+      - run: npm ci --ignore-scripts
+        working-directory: apps/web
+      - run: npm audit --audit-level=high
+        working-directory: apps/web
+      - run: npm run lint
+        working-directory: apps/web
+      - uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: terraform,dockerfile
+      - uses: terraform-linters/setup-tflint@v5
+        with: {tflint_version: v0.58.1}
+      - run: tflint --recursive
+      - uses: azure/setup-helm@v4
+        with: {version: v3.18.4}
+      - uses: yokawasa/action-setup-kube-tools@v0.12.0
+        with: {kubeconform: 0.8.0}
+      - name: Helm lint and schema validation
+        env:
+          DIGEST: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        run: |
+          helm lint helm/rag-platform $(for image in frontend api ingestionWorker driveSync ollamaRuntime; do printf '%s' " --set-string images.${image}.digest=${DIGEST}"; done)
+          helm template rag-platform helm/rag-platform $(for image in frontend api ingestionWorker driveSync ollamaRuntime; do printf '%s' " --set-string images.${image}.digest=${DIGEST}"; done) > rendered.yaml
+          kubeconform -strict -summary -ignore-missing-schemas rendered.yaml
+
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+    strategy:
+      matrix: {language: [python, javascript-typescript]}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with: {languages: "${{ matrix.language }}"}
+      - uses: github/codeql-action/autobuild@v3
+      - uses: github/codeql-action/analyze@v3
+
+  image-release:
+    needs: [source-security, codeql]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: frontend, dockerfile: docker/frontend.Dockerfile, repository: rag/frontend}
+          - {name: api, dockerfile: docker/python.Dockerfile, repository: rag/api}
+          - {name: ingestion-worker, dockerfile: docker/python.Dockerfile, repository: rag/ingestion-worker}
+          - {name: drive-sync, dockerfile: docker/python.Dockerfile, repository: rag/drive-sync}
+          - {name: ollama-runtime, dockerfile: docker/ollama.Dockerfile, repository: rag/ollama-runtime}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anchore/sbom-action/download-syft@v0.20.6
+      - uses: aquasecurity/setup-trivy@v0.3.1
+        with: {version: v0.74.0}
+      - uses: sigstore/cosign-installer@v3.9.2
+        with: {cosign-release: v2.6.0}
+      - name: Build tested image
+        run: docker build --target runtime --build-arg VCS_REF="${GITHUB_SHA}" -f "${{ matrix.dockerfile }}" -t "local/${{ matrix.name }}:${GITHUB_SHA}" .
+      - name: Generate SBOM
+        run: syft "local/${{ matrix.name }}:${GITHUB_SHA}" -o cyclonedx-json="${{ matrix.name }}.cdx.json"
+      - name: Scan image
+        env:
+          OLLAMA_EXCEPTION_EXPIRY: "2026-10-02"
+        run: |
+          args=(--ignore-unfixed --severity HIGH,CRITICAL --exit-code 1)
+          if [[ "${{ matrix.name }}" == "ollama-runtime" ]]; then
+            if [[ "$(date -u +%F)" > "${OLLAMA_EXCEPTION_EXPIRY}" ]]; then
+              echo "Ollama vulnerability exception expired on ${OLLAMA_EXCEPTION_EXPIRY}" >&2
+              exit 1
+            fi
+            args+=(--ignorefile security/trivy/ollama-runtime-v0.33.2.trivyignore)
+          fi
+          trivy image "${args[@]}" "local/${{ matrix.name }}:${GITHUB_SHA}"
+      - name: Sign pre-push image artifact
+        if: github.event_name == 'push'
+        run: |
+          docker save -o "${{ matrix.name }}.tar" "local/${{ matrix.name }}:${GITHUB_SHA}"
+          cosign sign-blob --yes --bundle "${{ matrix.name }}.bundle.json" "${{ matrix.name }}.tar"
+      - uses: aws-actions/configure-aws-credentials@v5
+        if: github.event_name == 'push'
+        with:
+          role-to-assume: ${{ secrets.AWS_ECR_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+        if: github.event_name == 'push'
+        id: ecr
+      - name: Push immutable revision to ECR
+        if: github.event_name == 'push'
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          remote="${REGISTRY}/${{ matrix.repository }}:${GITHUB_SHA}"
+          docker tag "local/${{ matrix.name }}:${GITHUB_SHA}" "${remote}"
+          docker push "${remote}"
+          docker inspect --format='{{index .RepoDigests 0}}' "${remote}" > "${{ matrix.name }}.digest.txt"
+      - name: Sign digest and attest SBOM
+        if: github.event_name == 'push'
+        run: |
+          reference="$(cat '${{ matrix.name }}.digest.txt')"
+          cosign sign --yes "${reference}"
+          cosign attest --yes --type cyclonedx --predicate "${{ matrix.name }}.cdx.json" "${reference}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-supply-chain
+          path: |
+            ${{ matrix.name }}.cdx.json
+            ${{ matrix.name }}.bundle.json
+            ${{ matrix.name }}.digest.txt
+          if-no-files-found: ignore

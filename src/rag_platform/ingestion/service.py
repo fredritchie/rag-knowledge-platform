@@ -98,6 +98,7 @@ class IngestionService:
         *,
         source: str = "manual",
         document_version: int = 1,
+        document_id: str | None = None,
         chunk_size: int | None = None,
         chunk_overlap: int | None = None,
     ) -> IngestionResult:
@@ -105,8 +106,19 @@ class IngestionService:
         # Hash early so duplicate detection avoids parsing an already-known document.
         if path.exists() and path.is_file() and path.stat().st_size > 0:
             checksum = sha256_file(path)
-            existing = self.catalog.find_by_checksum(checksum)
+            existing = self.catalog.find_by_checksum(checksum, tenant_id=self.settings.tenant_id)
             if existing:
+                if document_id and existing.document_id == document_id:
+                    issues = self.catalog.get_issues(document_id)
+                    chunks = self.catalog.get_chunks(document_id)
+                    stored_path = self.catalog.get_stored_path(document_id)
+                    if stored_path:
+                        return IngestionResult(
+                            document=existing,
+                            chunk_count=len(chunks),
+                            issues=issues,
+                            stored_path=Path(stored_path),
+                        )
                 raise DuplicateDocumentError(existing.document_id)
 
         preflight = preflight_validate(path, max_pages=self.settings.max_pages)
@@ -118,10 +130,11 @@ class IngestionService:
         ):
             preflight.checksum_sha256 = sha256_file(path)
 
-        document_id = "doc_" + uuid.uuid4().hex[:20]
+        document_id = document_id or "doc_" + uuid.uuid4().hex[:20]
         now = datetime.now(UTC)
         document = DocumentRecord(
             document_id=document_id,
+            tenant_id=self.settings.tenant_id,
             filename=path.name,
             source=source,
             document_version=document_version,
@@ -133,6 +146,7 @@ class IngestionService:
             subject=preflight.metadata.get("subject"),
             keywords=preflight.metadata.get("keywords"),
             parser_version=pymupdf.__version__,
+            chunker_version=self.settings.chunking.version,
             created_at=now,
             updated_at=now,
         )
@@ -240,7 +254,7 @@ class IngestionService:
         self, document_id: str
     ) -> tuple[DocumentRecord, list[ValidationIssue], int, str | None]:
         document = self.catalog.get_document(document_id)
-        if not document:
+        if not document or document.tenant_id != self.settings.tenant_id:
             raise DocumentNotFoundError(document_id)
         issues = self.catalog.get_issues(document_id)
         chunk_count = len(self.catalog.get_chunks(document_id))
@@ -249,7 +263,7 @@ class IngestionService:
 
     def delete(self, document_id: str, *, purge_file: bool = True) -> DocumentRecord:
         document = self.catalog.get_document(document_id)
-        if not document:
+        if not document or document.tenant_id != self.settings.tenant_id:
             raise DocumentNotFoundError(document_id)
         if document.status == DocumentStatus.DELETED:
             return document

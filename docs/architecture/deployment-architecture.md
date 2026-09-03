@@ -31,3 +31,20 @@ There is no Kubernetes cluster, AWS VPC, load balancer, queue, managed database,
 10. Kubernetes/GitOps/observability.
 
 This sequencing is a deliberate architecture constraint: intelligence and data correctness must be proven before platform complexity is introduced.
+
+## Phase 13 AWS foundation
+
+```text
+Internet -> WAF -> public ALB
+                    |
+                    v
+          private EKS node groups
+          | general | Qdrant | GPU |
+                    |
+                    v
+            private Aurora PostgreSQL
+
+S3 canonical store -> encrypted SQS -> DLQ
+```
+
+The VPC spans three availability zones. Public subnets contain the ALB and NAT gateways; private subnets contain all compute and data services. Route53 and ACM terminate public HTTPS at the ALB, while the EKS control-plane endpoint is private.

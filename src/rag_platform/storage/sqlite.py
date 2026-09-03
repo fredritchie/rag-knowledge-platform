@@ -43,6 +43,7 @@ class SQLiteCatalog:
                 """
                 CREATE TABLE IF NOT EXISTS documents (
                     document_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL DEFAULT 'default',
                     filename TEXT NOT NULL,
                     source TEXT NOT NULL,
                     source_file_id TEXT,
@@ -71,6 +72,7 @@ class SQLiteCatalog:
 
                 CREATE TABLE IF NOT EXISTS chunks (
                     chunk_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL DEFAULT 'default',
                     document_id TEXT NOT NULL REFERENCES documents(document_id) ON DELETE CASCADE,
                     filename TEXT NOT NULL,
                     page INTEGER NOT NULL,
@@ -88,6 +90,18 @@ class SQLiteCatalog:
                 CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id, chunk_index);
                 CREATE INDEX IF NOT EXISTS idx_chunks_page ON chunks(document_id, page);
 
+                CREATE TABLE IF NOT EXISTS generation_runs (
+                    run_id TEXT PRIMARY KEY,
+                    question TEXT NOT NULL,
+                    answer TEXT NOT NULL,
+                    prompt_version TEXT NOT NULL,
+                    model_version TEXT NOT NULL,
+                    retrieved_chunk_ids_json TEXT NOT NULL,
+                    generation_parameters_json TEXT NOT NULL,
+                    latency_ms REAL NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+
                 CREATE TABLE IF NOT EXISTS validation_issues (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     document_id TEXT NOT NULL REFERENCES documents(document_id) ON DELETE CASCADE,
@@ -100,6 +114,15 @@ class SQLiteCatalog:
                 CREATE INDEX IF NOT EXISTS idx_issues_document ON validation_issues(document_id);
                 """
             )
+            # Forward-only local migration for catalogs created by Phase 1.
+            for table in ("documents", "chunks"):
+                columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+                if "tenant_id" not in columns:
+                    conn.execute(
+                        f"ALTER TABLE {table} ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'"
+                    )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_tenant ON documents(tenant_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_tenant ON chunks(tenant_id)")
 
     def upsert_document(self, document: DocumentRecord, stored_path: str | None = None) -> None:
         values = document.model_dump(mode="json")
@@ -113,7 +136,7 @@ class SQLiteCatalog:
             conn.execute(
                 """
                 INSERT INTO documents (
-                    document_id, filename, source, source_file_id, source_version,
+                    document_id, tenant_id, filename, source, source_file_id, source_version,
                     document_version, checksum_sha256, content_type,
                     file_size_bytes, page_count, extracted_characters,
                     average_chars_per_page, title, author, 
@@ -121,7 +144,7 @@ class SQLiteCatalog:
                     parser_version, chunker_version,
                     stored_path, created_at, updated_at
                 ) VALUES (
-                    :document_id, :filename, :source, :source_file_id,
+                    :document_id, :tenant_id, :filename, :source, :source_file_id,
                     :source_version, :document_version,
                     :checksum_sha256, :content_type, :file_size_bytes,
                     :page_count, :extracted_characters,
@@ -130,6 +153,7 @@ class SQLiteCatalog:
                     :parser_version, :chunker_version, :stored_path, :created_at, :updated_at
                 )
                 ON CONFLICT(document_id) DO UPDATE SET
+                    tenant_id=excluded.tenant_id,
                     filename=excluded.filename,
                     source=excluded.source,
                     source_file_id=excluded.source_file_id,
@@ -183,24 +207,41 @@ class SQLiteCatalog:
                 "UPDATE documents SET stored_path = NULL WHERE document_id = ?", (document_id,)
             )
 
-    def find_by_checksum(self, checksum_sha256: str) -> DocumentRecord | None:
-        with self._connect() as conn:
-            row = conn.execute(
-                """
+    def find_by_checksum(
+        self, checksum_sha256: str, *, tenant_id: str | None = None
+    ) -> DocumentRecord | None:
+        params: list[str] = [checksum_sha256, DocumentStatus.DELETED.value]
+        if tenant_id is not None:
+            query = """
+                SELECT * FROM documents
+                WHERE checksum_sha256 = ? AND status != ? AND tenant_id = ?
+                ORDER BY created_at DESC LIMIT 1
+            """
+            params.append(tenant_id)
+        else:
+            query = """
                 SELECT * FROM documents
                 WHERE checksum_sha256 = ? AND status != ?
                 ORDER BY created_at DESC LIMIT 1
-                """,
-                (checksum_sha256, DocumentStatus.DELETED.value),
-            ).fetchone()
+            """
+        with self._connect() as conn:
+            row = conn.execute(query, params).fetchone()
         return self._row_to_document(row) if row else None
 
-    def list_documents(self, *, include_deleted: bool = False) -> list[DocumentRecord]:
+    def list_documents(
+        self, *, tenant_id: str | None = None, include_deleted: bool = False
+    ) -> list[DocumentRecord]:
         query = "SELECT * FROM documents"
-        params: tuple[str, ...] = ()
+        clauses: list[str] = []
+        params: list[str] = []
         if not include_deleted:
-            query += " WHERE status != ?"
-            params = (DocumentStatus.DELETED.value,)
+            clauses.append("status != ?")
+            params.append(DocumentStatus.DELETED.value)
+        if tenant_id is not None:
+            clauses.append("tenant_id = ?")
+            params.append(tenant_id)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY created_at DESC"
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
@@ -213,11 +254,13 @@ class SQLiteCatalog:
             conn.executemany(
                 """
                 INSERT INTO chunks (
-                    chunk_id, document_id, filename, page, chunk_index, page_chunk_index, text,
+                    chunk_id, tenant_id, document_id, filename, page, chunk_index,
+                    page_chunk_index, text,
                     source, document_version, checksum_sha256, chunker_version, char_start,
                     char_end, created_at
                 ) VALUES (
-                    :chunk_id, :document_id, :filename, :page, :chunk_index, :page_chunk_index, 
+                    :chunk_id, :tenant_id, :document_id, :filename, :page, :chunk_index,
+                    :page_chunk_index,
                     :text, :source, :document_version, :checksum_sha256, :chunker_version,
                     :char_start, :char_end, :created_at
                 )
@@ -240,6 +283,90 @@ class SQLiteCatalog:
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
         return [ChunkRecord.model_validate(dict(row)) for row in rows]
+
+    def get_all_chunks(
+        self,
+        *,
+        tenant_id: str | None = None,
+        document_ids: set[str] | None = None,
+        include_deleted: bool = False,
+    ) -> list[ChunkRecord]:
+        if document_ids is not None and not document_ids:
+            return []
+        query = """
+            SELECT c.* FROM chunks c
+            JOIN documents d ON d.document_id = c.document_id
+        """
+        clauses: list[str] = []
+        params: list[str] = []
+        if not include_deleted:
+            clauses.append("d.status != ?")
+            params.append(DocumentStatus.DELETED.value)
+        if tenant_id is not None:
+            clauses.append("c.tenant_id = ?")
+            params.append(tenant_id)
+        if document_ids is not None:
+            placeholders = ",".join("?" for _ in document_ids)
+            clauses.append(f"c.document_id IN ({placeholders})")
+            params.extend(sorted(document_ids))
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY c.document_id, c.chunk_index"
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [ChunkRecord.model_validate(dict(row)) for row in rows]
+
+    def get_chunks_by_ids(
+        self, chunk_ids: list[str], *, tenant_id: str | None = None
+    ) -> list[ChunkRecord]:
+        if not chunk_ids:
+            return []
+        if tenant_id is not None:
+            query = "SELECT * FROM chunks WHERE chunk_id = ? AND tenant_id = ?"
+        else:
+            query = "SELECT * FROM chunks WHERE chunk_id = ?"
+        with self._connect() as conn:
+            rows = [
+                conn.execute(
+                    query, (chunk_id, tenant_id) if tenant_id is not None else (chunk_id,)
+                ).fetchone()
+                for chunk_id in chunk_ids
+            ]
+        return [ChunkRecord.model_validate(dict(row)) for row in rows if row is not None]
+
+    def record_generation(
+        self,
+        *,
+        run_id: str,
+        question: str,
+        answer: str,
+        prompt_version: str,
+        model_version: str,
+        retrieved_chunk_ids: list[str],
+        generation_parameters: dict[str, object],
+        latency_ms: float,
+    ) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO generation_runs (
+                    run_id, question, answer, prompt_version, model_version,
+                    retrieved_chunk_ids_json, generation_parameters_json,
+                    latency_ms, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    question,
+                    answer,
+                    prompt_version,
+                    model_version,
+                    json.dumps(retrieved_chunk_ids),
+                    json.dumps(generation_parameters, sort_keys=True),
+                    latency_ms,
+                    datetime.now(UTC).isoformat(),
+                ),
+            )
 
     def delete_chunks(self, document_id: str) -> None:
         with self._connect() as conn:

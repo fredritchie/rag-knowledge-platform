@@ -1,0 +1,2 @@
+# Replace these examples with corpus-specific expected answers and page citations.
+{"question":"What is zero trust?","expected_document":"NIST-SP-800-207","expected_pages":[4],"expected_answer":"Zero trust assumes no implicit trust based on network location.","should_answer":true}

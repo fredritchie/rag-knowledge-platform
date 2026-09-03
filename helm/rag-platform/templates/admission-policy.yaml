@@ -1,0 +1,27 @@
+{{- if .Values.admissionPolicy.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ include "rag-platform.fullname" . }}-verify-images
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: verify-rag-image-signatures
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      verifyImages:
+        - imageReferences: [{{ .Values.admissionPolicy.imagePattern | quote }}]
+          mutateDigest: false
+          verifyDigest: true
+          required: true
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    subject: {{ .Values.admissionPolicy.certificateIdentity | quote }}
+                    issuer: {{ .Values.admissionPolicy.certificateIssuer | quote }}
+{{- end }}
+
