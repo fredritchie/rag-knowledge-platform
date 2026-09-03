@@ -34,6 +34,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.16.1
+          terraform_wrapper: false
       - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ vars.AWS_TERRAFORM_DRIFT_ROLE_ARN }}
