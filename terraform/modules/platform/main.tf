@@ -7,6 +7,10 @@ locals {
   })
   bucket_name = "rag-platform-${var.environment}-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
   auth_domain = coalesce(var.domain_name, "localhost:3000")
+  github_oidc_subject_prefix = coalesce(
+    var.github_oidc_subject_prefix,
+    "repo:${var.github_repository}",
+  )
 }
 
 module "vpc" {
@@ -56,20 +60,20 @@ module "ecr" {
 }
 
 module "iam" {
-  source                   = "../iam"
-  name                     = local.name
-  github_repository        = var.github_repository
-  github_environment       = var.environment
-  github_oidc_provider_arn = var.github_oidc_provider_arn
-  state_bucket_arn         = var.state_bucket_arn
-  state_kms_key_arn        = var.state_kms_key_arn
-  sns_topic_arn            = module.monitoring.sns_topic_arn
-  alert_kms_key_arn        = module.monitoring.kms_key_arn
-  ecr_repository_arns      = values(module.ecr.repository_arns)
-  callback_urls            = var.enable_https ? ["https://${local.auth_domain}/auth/callback"] : ["http://${local.auth_domain}/auth/callback"]
-  logout_urls              = var.enable_https ? ["https://${local.auth_domain}/login"] : ["http://${local.auth_domain}/login"]
-  deletion_protection      = var.deletion_protection
-  tags                     = local.tags
+  source                     = "../iam"
+  name                       = local.name
+  github_oidc_subject_prefix = local.github_oidc_subject_prefix
+  github_environment         = var.environment
+  github_oidc_provider_arn   = var.github_oidc_provider_arn
+  state_bucket_arn           = var.state_bucket_arn
+  state_kms_key_arn          = var.state_kms_key_arn
+  sns_topic_arn              = module.monitoring.sns_topic_arn
+  alert_kms_key_arn          = module.monitoring.kms_key_arn
+  ecr_repository_arns        = values(module.ecr.repository_arns)
+  callback_urls              = var.enable_https ? ["https://${local.auth_domain}/auth/callback"] : ["http://${local.auth_domain}/auth/callback"]
+  logout_urls                = var.enable_https ? ["https://${local.auth_domain}/login"] : ["http://${local.auth_domain}/login"]
+  deletion_protection        = var.deletion_protection
+  tags                       = local.tags
 }
 
 module "kubernetes" {

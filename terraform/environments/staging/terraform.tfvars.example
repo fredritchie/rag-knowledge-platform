@@ -9,6 +9,8 @@ enable_https             = true
 domain_name              = "staging.rag.example.com"
 hosted_zone_id           = "Z0000000000000000000"
 github_repository        = "your-org/production-rag-knowledge-platform"
+# Set this when GitHub immutable OIDC subjects are enabled, using the repository API's sub_claim_prefix.
+github_oidc_subject_prefix = null
 github_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
 state_bucket_arn         = "arn:aws:s3:::replace-with-state-bucket"
 state_kms_key_arn        = "arn:aws:kms:us-east-1:123456789012:key/replace-me"

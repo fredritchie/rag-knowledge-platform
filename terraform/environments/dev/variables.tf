@@ -23,6 +23,11 @@ variable "hosted_zone_id" {
   nullable = true
 }
 variable "github_repository" { type = string }
+variable "github_oidc_subject_prefix" {
+  type     = string
+  default  = null
+  nullable = true
+}
 variable "github_oidc_provider_arn" { type = string }
 variable "state_bucket_arn" { type = string }
 variable "state_kms_key_arn" { type = string }
