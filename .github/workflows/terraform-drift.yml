@@ -22,7 +22,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [dev, staging, prod]
+        # Add staging and prod only after each environment has been applied and
+        # its GitHub environment variables and TERRAFORM_TFVARS are configured.
+        environment: [dev]
     defaults:
       run:
         shell: bash

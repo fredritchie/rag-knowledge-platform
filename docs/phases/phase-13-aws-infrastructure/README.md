@@ -8,6 +8,10 @@ Terraform creates the ALB target group but does not register public node targets
 
 State locking uses Terraform's S3 lockfile support. The bootstrap root is separate because a backend cannot create itself. Drift is reported through a plan artifact, GitHub issue, and SNS, and is never repaired automatically.
 
+Nightly drift detection includes only applied environments. Dev is enabled now; staging and
+production must be added to the workflow matrix only after their GitHub environment inputs are
+configured and their first reviewed apply has completed.
+
 Dev is intentionally domainless: `enable_https = false` exposes the WAF-associated ALB listener on
 HTTP and reports the generated ALB hostname. This is suitable only for infrastructure smoke tests.
 Staging and production must use HTTPS with a DNS zone capable of creating ACM validation CNAMEs and

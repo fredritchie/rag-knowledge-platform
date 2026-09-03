@@ -102,6 +102,11 @@ data "aws_iam_policy_document" "drift" {
     actions   = ["sns:Publish"]
     resources = [var.sns_topic_arn]
   }
+  statement {
+    sid       = "EncryptDriftAlert"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = [var.alert_kms_key_arn]
+  }
 }
 
 resource "aws_iam_role_policy" "drift" {

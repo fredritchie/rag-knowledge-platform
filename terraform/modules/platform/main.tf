@@ -63,6 +63,7 @@ module "iam" {
   state_bucket_arn         = var.state_bucket_arn
   state_kms_key_arn        = var.state_kms_key_arn
   sns_topic_arn            = module.monitoring.sns_topic_arn
+  alert_kms_key_arn        = module.monitoring.kms_key_arn
   ecr_repository_arns      = values(module.ecr.repository_arns)
   callback_urls            = var.enable_https ? ["https://${local.auth_domain}/auth/callback"] : ["http://${local.auth_domain}/auth/callback"]
   logout_urls              = var.enable_https ? ["https://${local.auth_domain}/login"] : ["http://${local.auth_domain}/login"]
