@@ -172,9 +172,9 @@ resource "aws_lb_listener" "https" {
   }
 }
 
-#checkov:skip=CKV_AWS_103: Domainless dev deliberately uses HTTP; staging and production require the TLS 1.2+ HTTPS listener above.
 #trivy:ignore:AVD-AWS-0054 Domainless dev uses this conditional listener only for infrastructure smoke tests; production enables HTTPS.
 resource "aws_lb_listener" "http" {
+  #checkov:skip=CKV_AWS_103: Domainless dev deliberately uses HTTP; staging and production require the TLS 1.2+ HTTPS listener above.
   count             = var.enable_https ? 0 : 1
   load_balancer_arn = aws_lb.this.arn
   port              = 80
