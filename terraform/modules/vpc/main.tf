@@ -227,26 +227,3 @@ resource "aws_security_group" "kubernetes" {
   tags = merge(var.tags, { Name = "${var.name}-kubernetes" })
   lifecycle { create_before_destroy = true }
 }
-
-resource "aws_security_group" "database" {
-  #checkov:skip=CKV2_AWS_5: Attached to Aurora in the RDS module.
-  name_prefix = "${var.name}-database-"
-  description = "PostgreSQL from Kubernetes only"
-  vpc_id      = aws_vpc.this.id
-  ingress {
-    description     = "PostgreSQL from private application workloads"
-    protocol        = "tcp"
-    from_port       = 5432
-    to_port         = 5432
-    security_groups = [aws_security_group.kubernetes.id]
-  }
-  egress {
-    description = "Return traffic"
-    protocol    = "-1"
-    from_port   = 0
-    to_port     = 0
-    cidr_blocks = [var.vpc_cidr]
-  }
-  tags = merge(var.tags, { Name = "${var.name}-database" })
-  lifecycle { create_before_destroy = true }
-}

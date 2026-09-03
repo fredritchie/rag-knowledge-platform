@@ -17,7 +17,7 @@ data "aws_iam_policy_document" "key" {
     resources = ["*"]
     principals {
       type        = "Service"
-      identifiers = ["sns.amazonaws.com"]
+      identifiers = ["cloudwatch.amazonaws.com", "sns.amazonaws.com"]
     }
     condition {
       test     = "StringEquals"

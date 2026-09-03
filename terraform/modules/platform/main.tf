@@ -86,26 +86,51 @@ module "kubernetes" {
   tags                   = local.tags
 }
 
+moved {
+  from = module.vpc.aws_security_group.database
+  to   = aws_security_group.database
+}
+
+resource "aws_security_group" "database" {
+  #checkov:skip=CKV2_AWS_5: Attached to Aurora in the RDS module.
+  name_prefix = "${local.name}-database-"
+  description = "PostgreSQL from Kubernetes only"
+  vpc_id      = module.vpc.vpc_id
+  ingress {
+    description     = "PostgreSQL from platform workloads"
+    protocol        = "tcp"
+    from_port       = 5432
+    to_port         = 5432
+    security_groups = [module.vpc.kubernetes_security_group_id]
+  }
+  ingress {
+    description     = "PostgreSQL from EKS managed nodes"
+    protocol        = "tcp"
+    from_port       = 5432
+    to_port         = 5432
+    security_groups = [module.kubernetes.cluster_primary_security_group_id]
+  }
+  egress {
+    description = "Return traffic"
+    protocol    = "-1"
+    from_port   = 0
+    to_port     = 0
+    cidr_blocks = [var.vpc_cidr]
+  }
+  tags = merge(local.tags, { Name = "${local.name}-database" })
+  lifecycle { create_before_destroy = true }
+}
+
 module "database" {
   source              = "../rds"
   name                = local.name
   private_subnet_ids  = module.vpc.private_subnet_ids
-  security_group_id   = module.vpc.database_security_group_id
+  security_group_id   = aws_security_group.database.id
   instance_class      = var.aurora_instance_class
   instance_count      = var.aurora_instance_count
   deletion_protection = var.deletion_protection
   skip_final_snapshot = !var.deletion_protection
   tags                = local.tags
-}
-
-resource "aws_vpc_security_group_ingress_rule" "database_from_eks_nodes" {
-  security_group_id            = module.vpc.database_security_group_id
-  referenced_security_group_id = module.kubernetes.cluster_primary_security_group_id
-  description                  = "PostgreSQL from EKS managed nodes"
-  ip_protocol                  = "tcp"
-  from_port                    = 5432
-  to_port                      = 5432
-  tags                         = local.tags
 }
 
 module "edge" {
