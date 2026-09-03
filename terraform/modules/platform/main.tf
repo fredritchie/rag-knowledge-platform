@@ -6,6 +6,7 @@ locals {
     Project = "rag-platform", Environment = var.environment, ManagedBy = "Terraform"
   })
   bucket_name = "rag-platform-${var.environment}-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
+  auth_domain = coalesce(var.domain_name, "localhost:3000")
 }
 
 module "vpc" {
@@ -62,8 +63,8 @@ module "iam" {
   state_bucket_arn         = var.state_bucket_arn
   state_kms_key_arn        = var.state_kms_key_arn
   sns_topic_arn            = module.monitoring.sns_topic_arn
-  callback_urls            = var.enable_https ? ["https://${var.domain_name}/auth/callback"] : ["http://localhost:3000/auth/callback"]
-  logout_urls              = var.enable_https ? ["https://${var.domain_name}/login"] : ["http://localhost:3000/login"]
+  callback_urls            = var.enable_https ? ["https://${local.auth_domain}/auth/callback"] : ["http://${local.auth_domain}/auth/callback"]
+  logout_urls              = var.enable_https ? ["https://${local.auth_domain}/login"] : ["http://${local.auth_domain}/login"]
   deletion_protection      = var.deletion_protection
   tags                     = local.tags
 }
