@@ -50,7 +50,7 @@ resource "aws_iam_role_policy_attachment" "node_cni" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
 }
 
-data "aws_iam_policy_document" "github_assume" {
+data "aws_iam_policy_document" "github_branch_assume" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
     principals {
@@ -70,9 +70,29 @@ data "aws_iam_policy_document" "github_assume" {
   }
 }
 
+data "aws_iam_policy_document" "github_environment_assume" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [var.github_oidc_provider_arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_repository}:environment:${var.github_environment}"]
+    }
+  }
+}
+
 resource "aws_iam_role" "drift_detection" {
   name               = "${var.name}-terraform-drift"
-  assume_role_policy = data.aws_iam_policy_document.github_assume.json
+  assume_role_policy = data.aws_iam_policy_document.github_environment_assume.json
   tags               = var.tags
 }
 
@@ -117,7 +137,7 @@ resource "aws_iam_role_policy" "drift" {
 
 resource "aws_iam_role" "ecr_publisher" {
   name               = "${var.name}-ecr-publisher"
-  assume_role_policy = data.aws_iam_policy_document.github_assume.json
+  assume_role_policy = data.aws_iam_policy_document.github_branch_assume.json
   tags               = var.tags
 }
 

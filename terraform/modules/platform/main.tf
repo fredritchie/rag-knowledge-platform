@@ -59,6 +59,7 @@ module "iam" {
   source                   = "../iam"
   name                     = local.name
   github_repository        = var.github_repository
+  github_environment       = var.environment
   github_oidc_provider_arn = var.github_oidc_provider_arn
   state_bucket_arn         = var.state_bucket_arn
   state_kms_key_arn        = var.state_kms_key_arn
