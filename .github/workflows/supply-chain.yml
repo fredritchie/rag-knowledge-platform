@@ -83,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: anchore/sbom-action/download-syft@v0.20.6
-      - uses: aquasecurity/setup-trivy@v0.2.4
+      - uses: aquasecurity/setup-trivy@v0.3.1
         with: {version: v0.74.0}
       - uses: sigstore/cosign-installer@v3.9.2
         with: {cosign-release: v2.6.0}
