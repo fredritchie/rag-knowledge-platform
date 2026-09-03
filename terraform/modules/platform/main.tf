@@ -20,9 +20,10 @@ module "vpc" {
 }
 
 module "documents" {
-  source = "../s3"
-  name   = local.bucket_name
-  tags   = local.tags
+  source        = "../s3"
+  name          = local.bucket_name
+  force_destroy = !var.deletion_protection
+  tags          = local.tags
 }
 
 module "queues" {
@@ -48,6 +49,7 @@ module "ecr" {
   name_prefix  = "rag"
   repositories = ["frontend", "api", "ingestion-worker", "drive-sync", "ollama-runtime"]
   kms_key_arn  = module.documents.kms_key_arn
+  force_delete = !var.deletion_protection
   tags         = local.tags
 }
 
@@ -94,14 +96,16 @@ module "database" {
 }
 
 module "edge" {
-  source            = "../alb"
-  name              = "${local.name}-alb"
-  domain_name       = var.domain_name
-  hosted_zone_id    = var.hosted_zone_id
-  vpc_id            = module.vpc.vpc_id
-  public_subnet_ids = module.vpc.public_subnet_ids
-  security_group_id = module.vpc.alb_security_group_id
-  tags              = local.tags
+  source                = "../alb"
+  name                  = "${local.name}-alb"
+  domain_name           = var.domain_name
+  hosted_zone_id        = var.hosted_zone_id
+  vpc_id                = module.vpc.vpc_id
+  public_subnet_ids     = module.vpc.public_subnet_ids
+  security_group_id     = module.vpc.alb_security_group_id
+  deletion_protection   = var.deletion_protection
+  force_destroy_buckets = !var.deletion_protection
+  tags                  = local.tags
 }
 
 module "monitoring" {

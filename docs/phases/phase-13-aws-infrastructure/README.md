@@ -8,6 +8,33 @@ Terraform creates the ALB target group but does not register public node targets
 
 State locking uses Terraform's S3 lockfile support. The bootstrap root is separate because a backend cannot create itself. Drift is reported through a plan artifact, GitHub issue, and SNS, and is never repaired automatically.
 
+## Teardown and cost shutdown
+
+Destroy an application environment before destroying its state backend. For dev, keep
+`deletion_protection = false`; this also permits Terraform to empty the dev document and ALB-log
+buckets and delete non-empty ECR repositories. Staging and production default to protection and
+must be deliberately changed to `false` and applied before they can be destroyed.
+
+First remove Kubernetes-managed load balancers, persistent volumes, and other AWS resources created
+outside this Terraform state. Then review and apply a saved destroy plan:
+
+```bash
+terraform -chdir=terraform/environments/dev init -reconfigure -backend-config=backend.hcl
+terraform -chdir=terraform/environments/dev plan -destroy -var-file=terraform.tfvars -out=destroy.tfplan
+terraform -chdir=terraform/environments/dev show destroy.tfplan
+terraform -chdir=terraform/environments/dev apply destroy.tfplan
+```
+
+Repeat for staging and production only when those environments are intentionally being retired.
+KMS key deletion is scheduled with a 30-day recovery window, so keys remain visible but unusable
+until AWS completes deletion.
+
+The bootstrap state bucket has `prevent_destroy = true` and is retained by design. To decommission
+the account completely, first destroy every environment, preserve an offline copy of all state
+versions, then use a separately reviewed break-glass change to remove that lifecycle protection and
+empty the versioned bucket before destroying the bootstrap root. Never destroy the bootstrap first:
+doing so removes the state and lock data needed for an orderly environment teardown.
+
 ## Exit criteria
 
 Phase 13 is complete only when all of the following criteria are satisfied.

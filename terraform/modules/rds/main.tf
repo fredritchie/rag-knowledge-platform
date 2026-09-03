@@ -153,9 +153,10 @@ resource "aws_iam_role_policy_attachment" "backup" {
 }
 
 resource "aws_backup_vault" "this" {
-  name        = var.name
-  kms_key_arn = aws_kms_key.this.arn
-  tags        = var.tags
+  name          = var.name
+  kms_key_arn   = aws_kms_key.this.arn
+  force_destroy = var.skip_final_snapshot
+  tags          = var.tags
 }
 
 resource "aws_backup_plan" "this" {

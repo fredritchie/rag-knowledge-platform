@@ -38,7 +38,7 @@ resource "aws_lb" "this" {
   security_groups            = [var.security_group_id]
   subnets                    = var.public_subnet_ids
   drop_invalid_header_fields = true
-  enable_deletion_protection = true
+  enable_deletion_protection = var.deletion_protection
   access_logs {
     bucket  = aws_s3_bucket.logs.id
     prefix  = "alb/${var.name}"
@@ -55,6 +55,7 @@ resource "aws_s3_bucket" "logs" {
   #checkov:skip=CKV_AWS_145: ALB access-log delivery supports Amazon S3 managed encryption, not customer-managed KMS keys.
   #checkov:skip=CKV2_AWS_62: Access logs are consumed from this dedicated bucket without S3 event fan-out.
   bucket_prefix = "${var.name}-logs-"
+  force_destroy = var.force_destroy_buckets
   tags          = var.tags
 }
 
