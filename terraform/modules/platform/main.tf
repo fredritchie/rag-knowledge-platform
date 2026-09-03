@@ -98,6 +98,16 @@ module "database" {
   tags                = local.tags
 }
 
+resource "aws_vpc_security_group_ingress_rule" "database_from_eks_nodes" {
+  security_group_id            = module.vpc.database_security_group_id
+  referenced_security_group_id = module.kubernetes.cluster_primary_security_group_id
+  description                  = "PostgreSQL from EKS managed nodes"
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+  tags                         = local.tags
+}
+
 module "edge" {
   source                = "../alb"
   name                  = "${local.name}-alb"
