@@ -1,0 +1,6 @@
+aws_region        = "us-east-1"
+state_bucket_name = "replace-with-globally-unique-rag-terraform-state"
+
+# Set these when the AWS account already has the GitHub Actions OIDC provider.
+create_github_oidc_provider       = true
+existing_github_oidc_provider_arn = null

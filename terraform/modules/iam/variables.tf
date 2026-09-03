@@ -1,0 +1,16 @@
+variable "name" { type = string }
+variable "github_repository" { type = string }
+variable "github_branch" {
+  type    = string
+  default = "main"
+}
+variable "github_oidc_provider_arn" { type = string }
+variable "state_bucket_arn" { type = string }
+variable "state_kms_key_arn" { type = string }
+variable "sns_topic_arn" { type = string }
+variable "callback_urls" { type = list(string) }
+variable "logout_urls" { type = list(string) }
+variable "tags" {
+  type    = map(string)
+  default = {}
+}

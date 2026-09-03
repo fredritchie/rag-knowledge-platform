@@ -19,5 +19,10 @@ node_modules/
 .terraform/
 *.tfstate
 *.tfstate.*
+backend.hcl
+terraform.tfvars
+*.tfplan
+plan.txt
+plan-command.txt
 .vscode/
 security-results/

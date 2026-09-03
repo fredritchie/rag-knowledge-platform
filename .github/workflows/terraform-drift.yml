@@ -1,0 +1,108 @@
+name: terraform-drift
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  issues: write
+
+concurrency:
+  group: terraform-drift-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: ${{ matrix.environment }} drift
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, staging, prod]
+    defaults:
+      run:
+        shell: bash
+        working-directory: terraform/environments/${{ matrix.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.1
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_DRIFT_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Write environment inputs
+        env:
+          TERRAFORM_TFVARS: ${{ secrets.TERRAFORM_TFVARS }}
+        run: |
+          test -n "${TERRAFORM_TFVARS}"
+          printf '%s\n' "${TERRAFORM_TFVARS}" > terraform.tfvars
+      - name: Initialize remote state
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=rag-platform/${{ matrix.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION }}" \
+            -backend-config="kms_key_id=${{ vars.TF_STATE_KMS_KEY_ARN }}" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+      - name: Detect drift
+        id: plan
+        run: |
+          set +e
+          terraform plan -input=false -no-color -detailed-exitcode -out=tfplan > plan-command.txt 2>&1
+          exit_code=$?
+          set -e
+          echo "exit_code=${exit_code}" >> "${GITHUB_OUTPUT}"
+          case "${exit_code}" in
+            0) printf 'No drift detected.\n' > plan.txt ;;
+            2) terraform show -no-color tfplan > plan.txt ;;
+            *) cp plan-command.txt plan.txt ;;
+          esac
+      - name: Upload plan artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-${{ matrix.environment }}-plan-${{ github.run_id }}
+          path: |
+            terraform/environments/${{ matrix.environment }}/plan.txt
+            terraform/environments/${{ matrix.environment }}/plan-command.txt
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Open or update drift issue
+        if: steps.plan.outputs.exit_code == '2'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENVIRONMENT: ${{ matrix.environment }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        working-directory: .
+        run: |
+          title="Terraform drift detected: ${ENVIRONMENT}"
+          body="Terraform detected unmanaged differences in **${ENVIRONMENT}**. Review the plan artifact from [workflow run ${GITHUB_RUN_ID}](${RUN_URL}). No automatic repair was attempted."
+          issue_number="$(gh issue list --state open --search "${title} in:title" --json number --jq '.[0].number // empty')"
+          if [[ -n "${issue_number}" ]]; then
+            gh issue comment "${issue_number}" --body "${body}"
+          else
+            gh issue create --title "${title}" --body "${body}"
+          fi
+      - name: Publish SNS drift alert
+        if: steps.plan.outputs.exit_code == '2'
+        env:
+          ENVIRONMENT: ${{ matrix.environment }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          aws sns publish \
+            --topic-arn "${{ vars.TERRAFORM_DRIFT_SNS_TOPIC_ARN }}" \
+            --subject "Terraform drift: ${ENVIRONMENT}" \
+            --message "Drift detected in ${ENVIRONMENT}. Review ${RUN_URL}. No automatic repair was attempted."
+      - name: Fail on plan error
+        if: steps.plan.outputs.exit_code == '1'
+        run: exit 1
+      - name: Reject unexpected exit code
+        if: steps.plan.outputs.exit_code != '0' && steps.plan.outputs.exit_code != '1' && steps.plan.outputs.exit_code != '2'
+        run: exit 1

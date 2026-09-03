@@ -1,12 +1,12 @@
 # ADR 005: Kubernetes Strategy
 
 ## Status
-Deferred implementation; architecture decision recorded now.
+Accepted and implemented for AWS in Phase 13.
 
 ## Decision
 Do not introduce Kubernetes until document processing, retrieval, RAG evaluation, application APIs, and asynchronous ingestion are proven.
 
-For portfolio learning, a self-managed Kubernetes environment can demonstrate control-plane lifecycle, etcd backup, node pools, and scheduling. For commercial AWS production, EKS must be evaluated because managed control planes reduce operational burden.
+AWS environments use EKS because its managed control plane reduces operational burden. The API endpoint is private-only, and managed node groups are separated into general application, Qdrant, and NVIDIA GPU pools. Dedicated Qdrant and GPU taints prevent unrelated workloads from consuming specialized capacity.
 
-## Phase 0/1 consequence
-No Kubernetes manifests are required to run or test the current implementation.
+## Consequence
+Terraform owns the EKS control plane and compute pools. Workload installation, persistent-volume definitions, autoscaling components, and private ALB target binding remain deployment/GitOps responsibilities rather than infrastructure-foundation concerns.

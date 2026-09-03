@@ -17,6 +17,7 @@ Detailed implementation and operating guides:
 - [Phase 9 — Event-Driven S3 Ingestion](docs/phases/phase-9-event-driven-s3-ingestion/README.md)
 - [Phase 10 — Google Drive Integration](docs/phases/phase-10-google-drive-integration/README.md)
 - [Phase 12 — Containerization and Supply-Chain Security](docs/phases/phase-12-container-supply-chain/README.md)
+- [Phase 13 — AWS Infrastructure with Terraform](docs/phases/phase-13-aws-infrastructure/README.md)
 
 ## What is implemented
 
