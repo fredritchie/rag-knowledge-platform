@@ -1,0 +1,19 @@
+{{- $root := . -}}
+{{- range $workload := list
+  (dict "name" "frontend" "replicas" .Values.replicaCount.frontend)
+  (dict "name" "api" "replicas" .Values.replicaCount.api)
+  (dict "name" "ingestion-worker" "replicas" .Values.replicaCount.ingestionWorker)
+  (dict "name" "drive-sync" "replicas" .Values.replicaCount.driveSync)
+}}
+{{- if gt (int $workload.replicas) 1 }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "rag-platform.fullname" $root }}-{{ $workload.name }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: {{ $workload.name }}}
+{{- end }}
+{{- end }}

@@ -25,9 +25,11 @@ module "platform" {
   kubernetes_version         = var.kubernetes_version
   general_instance_types     = var.general_instance_types
   qdrant_instance_types      = var.qdrant_instance_types
+  ingestion_instance_types   = var.ingestion_instance_types
   gpu_instance_types         = var.gpu_instance_types
   general_desired_size       = var.general_desired_size
   qdrant_desired_size        = var.qdrant_desired_size
+  ingestion_desired_size     = var.ingestion_desired_size
   gpu_desired_size           = var.gpu_desired_size
   aurora_instance_class      = var.aurora_instance_class
   aurora_instance_count      = var.aurora_instance_count

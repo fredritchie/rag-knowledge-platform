@@ -169,6 +169,7 @@ resource "aws_flow_log" "this" {
 
 resource "aws_security_group" "alb" {
   #checkov:skip=CKV2_AWS_5: Attached to the ALB in the edge module.
+  #checkov:skip=CKV_AWS_260: Domainless dev intentionally accepts HTTP; HTTPS environments set this rule to port 443.
   name_prefix = "${var.name}-alb-"
   description = "Public ALB entrypoint"
   vpc_id      = aws_vpc.this.id
@@ -182,8 +183,8 @@ resource "aws_security_group" "alb" {
   egress {
     description = "Forward traffic to private application targets"
     protocol    = "tcp"
-    from_port   = 8080
-    to_port     = 8080
+    from_port   = 3000
+    to_port     = 3000
     cidr_blocks = var.private_subnet_cidrs
   }
   tags = merge(var.tags, { Name = "${var.name}-alb" })
@@ -196,10 +197,10 @@ resource "aws_security_group" "kubernetes" {
   description = "Private Kubernetes workloads"
   vpc_id      = aws_vpc.this.id
   ingress {
-    description     = "Application traffic from the ALB"
+    description     = "Frontend traffic from the ALB"
     protocol        = "tcp"
-    from_port       = 8080
-    to_port         = 8080
+    from_port       = 3000
+    to_port         = 3000
     security_groups = [aws_security_group.alb.id]
   }
   ingress {

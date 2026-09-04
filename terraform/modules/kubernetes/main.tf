@@ -63,6 +63,21 @@ resource "aws_eks_cluster" "this" {
   depends_on = [aws_cloudwatch_log_group.cluster]
 }
 
+resource "aws_eks_addon" "pod_identity_agent" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "eks-pod-identity-agent"
+  resolve_conflicts_on_update = "PRESERVE"
+  tags                        = var.tags
+}
+
+resource "aws_eks_addon" "vpc_cni" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "vpc-cni"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "PRESERVE"
+  tags                        = var.tags
+}
+
 resource "aws_eks_node_group" "general" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "general"
@@ -77,7 +92,13 @@ resource "aws_eks_node_group" "general" {
   }
   update_config { max_unavailable_percentage = 33 }
   labels = { workload = "general" }
-  tags   = var.tags
+  taint {
+    key    = "node.cilium.io/agent-not-ready"
+    value  = "true"
+    effect = "NO_EXECUTE"
+  }
+  tags       = var.tags
+  depends_on = [aws_eks_addon.vpc_cni]
 }
 
 resource "aws_eks_node_group" "qdrant" {
@@ -99,7 +120,41 @@ resource "aws_eks_node_group" "qdrant" {
     value  = "qdrant"
     effect = "NO_SCHEDULE"
   }
-  tags = var.tags
+  taint {
+    key    = "node.cilium.io/agent-not-ready"
+    value  = "true"
+    effect = "NO_EXECUTE"
+  }
+  tags       = var.tags
+  depends_on = [aws_eks_addon.vpc_cni]
+}
+
+resource "aws_eks_node_group" "ingestion" {
+  cluster_name    = aws_eks_cluster.this.name
+  node_group_name = "ingestion"
+  node_role_arn   = var.node_role_arn
+  subnet_ids      = var.private_subnet_ids
+  instance_types  = var.ingestion_instance_types
+  capacity_type   = "ON_DEMAND"
+  scaling_config {
+    desired_size = var.ingestion_desired_size
+    min_size     = 1
+    max_size     = max(3, var.ingestion_desired_size * 2)
+  }
+  update_config { max_unavailable_percentage = 33 }
+  labels = { workload = "ingestion" }
+  taint {
+    key    = "dedicated"
+    value  = "ingestion"
+    effect = "NO_SCHEDULE"
+  }
+  taint {
+    key    = "node.cilium.io/agent-not-ready"
+    value  = "true"
+    effect = "NO_EXECUTE"
+  }
+  tags       = var.tags
+  depends_on = [aws_eks_addon.vpc_cni]
 }
 
 resource "aws_eks_node_group" "gpu" {
@@ -122,5 +177,11 @@ resource "aws_eks_node_group" "gpu" {
     value  = "true"
     effect = "NO_SCHEDULE"
   }
-  tags = var.tags
+  taint {
+    key    = "node.cilium.io/agent-not-ready"
+    value  = "true"
+    effect = "NO_EXECUTE"
+  }
+  tags       = var.tags
+  depends_on = [aws_eks_addon.vpc_cni]
 }

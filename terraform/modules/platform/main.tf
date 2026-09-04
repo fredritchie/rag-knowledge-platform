@@ -77,20 +77,22 @@ module "iam" {
 }
 
 module "kubernetes" {
-  source                 = "../kubernetes"
-  name                   = local.name
-  kubernetes_version     = var.kubernetes_version
-  private_subnet_ids     = module.vpc.private_subnet_ids
-  security_group_id      = module.vpc.kubernetes_security_group_id
-  cluster_role_arn       = module.iam.eks_cluster_role_arn
-  node_role_arn          = module.iam.eks_node_role_arn
-  general_instance_types = var.general_instance_types
-  qdrant_instance_types  = var.qdrant_instance_types
-  gpu_instance_types     = var.gpu_instance_types
-  general_desired_size   = var.general_desired_size
-  qdrant_desired_size    = var.qdrant_desired_size
-  gpu_desired_size       = var.gpu_desired_size
-  tags                   = local.tags
+  source                   = "../kubernetes"
+  name                     = local.name
+  kubernetes_version       = var.kubernetes_version
+  private_subnet_ids       = module.vpc.private_subnet_ids
+  security_group_id        = module.vpc.kubernetes_security_group_id
+  cluster_role_arn         = module.iam.eks_cluster_role_arn
+  node_role_arn            = module.iam.eks_node_role_arn
+  general_instance_types   = var.general_instance_types
+  qdrant_instance_types    = var.qdrant_instance_types
+  ingestion_instance_types = var.ingestion_instance_types
+  gpu_instance_types       = var.gpu_instance_types
+  general_desired_size     = var.general_desired_size
+  qdrant_desired_size      = var.qdrant_desired_size
+  ingestion_desired_size   = var.ingestion_desired_size
+  gpu_desired_size         = var.gpu_desired_size
+  tags                     = local.tags
 }
 
 moved {

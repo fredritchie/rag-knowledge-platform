@@ -1,0 +1,187 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alb-to-frontend
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: frontend}
+  policyTypes: [Ingress]
+  ingress:
+    {{- range .Values.networkPolicy.albSourceCidrs }}
+    - from: [{ipBlock: {cidr: {{ . | quote }}}}]
+      ports: [{protocol: TCP, port: 3000}]
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-to-api
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: frontend}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: api}
+      ports: [{protocol: TCP, port: 8080}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-ingress
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: api}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: frontend}
+      ports: [{protocol: TCP, port: 8080}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-data-plane
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: api}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}
+      ports: [{protocol: TCP, port: 6333}]
+    - to:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: ollama-runtime}
+      ports: [{protocol: TCP, port: 11434}]
+    {{- range .Values.networkPolicy.postgresqlCidrs }}
+    - to: [{ipBlock: {cidr: {{ . | quote }}}}]
+      ports: [{protocol: TCP, port: 5432}]
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: migration-to-postgresql
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: migrate}
+  policyTypes: [Egress]
+  egress:
+    {{- range .Values.networkPolicy.postgresqlCidrs }}
+    - to: [{ipBlock: {cidr: {{ . | quote }}}}]
+      ports: [{protocol: TCP, port: 5432}]
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qdrant-ingress
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - {key: app.kubernetes.io/component, operator: In, values: [api, ingestion-worker]}
+      ports: [{protocol: TCP, port: 6333}]
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/component: qdrant}
+      ports: [{protocol: TCP, port: 6335}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qdrant-peer-egress
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}
+      ports: [{protocol: TCP, port: 6335}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ollama-ingress
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: ollama-runtime}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: api}
+      ports: [{protocol: TCP, port: 11434}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: workers-to-pod-identity-agent
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/component, operator: In, values: [ingestion-worker, drive-sync]}
+  policyTypes: [Egress]
+  egress:
+    - to: [{ipBlock: {cidr: 169.254.170.23/32}}]
+      ports: [{protocol: TCP, port: 80}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: workers-data-plane
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/component, operator: In, values: [ingestion-worker, drive-sync]}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}
+      ports: [{protocol: TCP, port: 6333}]
+    {{- range .Values.networkPolicy.s3EndpointCidrs }}
+    - to: [{ipBlock: {cidr: {{ . | quote }}}}]
+      ports: [{protocol: TCP, port: 443}]
+    {{- end }}
+    {{- range .Values.networkPolicy.postgresqlCidrs }}
+    - to: [{ipBlock: {cidr: {{ . | quote }}}}]
+      ports: [{protocol: TCP, port: 5432}]
+    {{- end }}
+{{- end }}

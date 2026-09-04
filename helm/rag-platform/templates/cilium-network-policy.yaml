@@ -1,0 +1,33 @@
+{{- if and .Values.networkPolicy.enabled .Values.networkPolicy.ciliumFqdnEgress.enabled }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: workers-fqdn-egress
+spec:
+  endpointSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/component, operator: In, values: [ingestion-worker, drive-sync]}
+  egress:
+    - toFQDNs:
+        {{- range .Values.networkPolicy.ciliumFqdnEgress.workerHosts }}
+        - matchPattern: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports: [{port: "443", protocol: TCP}]
+{{- if .Values.networkPolicy.ciliumFqdnEgress.postgresqlHost }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: database-fqdn-egress
+spec:
+  endpointSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/component, operator: In, values: [api, ingestion-worker, drive-sync, migrate]}
+  egress:
+    - toFQDNs:
+        - matchName: {{ .Values.networkPolicy.ciliumFqdnEgress.postgresqlHost | quote }}
+      toPorts:
+        - ports: [{port: "5432", protocol: TCP}]
+{{- end }}
+{{- end }}

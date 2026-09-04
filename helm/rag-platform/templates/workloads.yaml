@@ -1,9 +1,9 @@
 {{- $root := . -}}
 {{- $workloads := list
-  (dict "name" "frontend" "image" "frontend" "replicas" .Values.replicaCount.frontend "port" 3000 "command" (list) "probe" "/")
-  (dict "name" "api" "image" "api" "replicas" .Values.replicaCount.api "port" 8080 "command" (list "rag-api") "probe" "/live")
-  (dict "name" "ingestion-worker" "image" "ingestionWorker" "replicas" .Values.replicaCount.ingestionWorker "port" 0 "command" (list "rag-ingestion-worker") "probe" "")
-  (dict "name" "drive-sync" "image" "driveSync" "replicas" .Values.replicaCount.driveSync "port" 0 "command" (list "rag-sync-worker") "probe" "")
+  (dict "name" "frontend" "image" "frontend" "replicas" .Values.replicaCount.frontend "port" 3000 "command" (list) "probe" "/" "pool" "general")
+  (dict "name" "api" "image" "api" "replicas" .Values.replicaCount.api "port" 8080 "command" (list "rag-api") "probe" "/live" "pool" "general")
+  (dict "name" "ingestion-worker" "image" "ingestionWorker" "replicas" .Values.replicaCount.ingestionWorker "port" 0 "command" (list "rag-ingestion-worker") "probe" "" "pool" "ingestion")
+  (dict "name" "drive-sync" "image" "driveSync" "replicas" .Values.replicaCount.driveSync "port" 0 "command" (list "rag-sync-worker") "probe" "" "pool" "general")
 -}}
 {{- range $workload := $workloads }}
 ---
@@ -20,8 +20,35 @@ spec:
     metadata:
       labels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: {{ $workload.name }}}
     spec:
-      serviceAccountName: {{ include "rag-platform.serviceAccountName" $root }}
+      serviceAccountName: {{ if or (eq $workload.name "ingestion-worker") (eq $workload.name "drive-sync") }}{{ $root.Values.workerServiceAccount.name }}{{ else }}{{ include "rag-platform.serviceAccountName" $root }}{{ end }}
       automountServiceAccountToken: false
+      nodeSelector:
+        {{- toYaml (index $root.Values.scheduling $workload.pool).nodeSelector | nindent 8 }}
+      {{- with (index $root.Values.scheduling $workload.pool).tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: workload
+                    operator: In
+                    values: [{{ $workload.pool }}]
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: {{ $workload.name }}}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: {{ $workload.name }}}
       securityContext:
         runAsNonRoot: true
         runAsUser: {{ if eq $workload.name "frontend" }}1000{{ else }}10001{{ end }}
@@ -39,6 +66,8 @@ spec:
             - {name: RAG__API__HOST, value: "0.0.0.0"}
             - {name: RAG__QDRANT__URL, value: {{ $root.Values.config.qdrantUrl | quote }}}
             - {name: RAG__GENERATION__BASE_URL, value: {{ $root.Values.config.ollamaUrl | quote }}}
+            - {name: AWS_REGION, value: {{ $root.Values.config.awsRegion | quote }}}
+            - {name: RAG__EVENT_INGESTION__QUEUE_URL, value: {{ $root.Values.config.ingestionQueueUrl | quote }}}
             - {name: RAG__DRIVE__ENABLED, value: {{ if eq $workload.name "drive-sync" }}"true"{{ else }}"false"{{ end }}}
             - name: RAG__DATABASE__URL
               valueFrom:
@@ -79,4 +108,3 @@ spec:
           emptyDir: {sizeLimit: 1Gi}
         {{- end }}
 {{- end }}
-

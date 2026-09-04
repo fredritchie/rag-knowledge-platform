@@ -1,0 +1,10 @@
+clusterName: replace-me
+region: us-east-1
+vpcId: replace-me
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+enableShield: false
+enableWaf: false
+enableWafv2: true
+replicaCount: 2

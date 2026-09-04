@@ -1,0 +1,12 @@
+{{- if .Values.targetGroupBinding.enabled }}
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: {{ include "rag-platform.fullname" . }}-frontend
+spec:
+  serviceRef:
+    name: {{ include "rag-platform.fullname" . }}-frontend
+    port: 3000
+  targetGroupARN: {{ required "targetGroupBinding.targetGroupARN is required when enabled" .Values.targetGroupBinding.targetGroupARN }}
+  targetType: ip
+{{- end }}

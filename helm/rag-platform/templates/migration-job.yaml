@@ -3,7 +3,7 @@ kind: Job
 metadata:
   name: {{ include "rag-platform.fullname" . }}-migrate
   annotations:
-    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook: post-install,pre-upgrade
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 3
@@ -14,6 +14,14 @@ spec:
       restartPolicy: Never
       serviceAccountName: {{ include "rag-platform.serviceAccountName" . }}
       automountServiceAccountToken: false
+      nodeSelector:
+        {{- toYaml .Values.scheduling.general.nodeSelector | nindent 8 }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - {key: workload, operator: In, values: [general]}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -37,4 +45,3 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {sizeLimit: 256Mi}
-

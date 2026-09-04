@@ -17,6 +17,7 @@ state_kms_key_arn        = "arn:aws:kms:us-east-1:123456789012:key/replace-me"
 alert_email_addresses    = ["platform@example.com"]
 general_desired_size     = 2
 qdrant_desired_size      = 3
+ingestion_desired_size   = 2
 gpu_desired_size         = 0
 aurora_instance_class    = "db.r6g.large"
 aurora_instance_count    = 2

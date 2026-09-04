@@ -15,6 +15,7 @@ retrieval, generation, and quality-engineering phases.
 - [Phase 10 — Google Drive Integration](phase-10-google-drive-integration/README.md)
 - [Phase 12 — Containerization and Supply-Chain Security](phase-12-container-supply-chain/README.md)
 - [Phase 13 — AWS Infrastructure with Terraform](phase-13-aws-infrastructure/README.md)
+- [Phase 14 — Kubernetes](phase-14-kubernetes/README.md)
 
 Each guide describes the current source code rather than an aspirational architecture. When a
 guide calls out a limitation, it is intentional: operators and evaluators should not mistake a

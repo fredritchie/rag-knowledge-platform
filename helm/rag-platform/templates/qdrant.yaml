@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant-headless
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}
+  ports:
+    - {name: http, port: 6333, targetPort: http}
+    - {name: peer, port: 6335, targetPort: peer}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant
+spec:
+  selector: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}
+  ports: [{name: http, port: 6333, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: qdrant
+spec:
+  serviceName: qdrant-headless
+  podManagementPolicy: Parallel
+  replicas: {{ .Values.qdrant.replicas }}
+  selector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        {{- toYaml .Values.scheduling.qdrant.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.scheduling.qdrant.tolerations | nindent 8 }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - {key: workload, operator: In, values: [qdrant]}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: qdrant
+          image: {{ include "rag-platform.image" (dict "Values" .Values "image" "qdrant") }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              peer="http://${HOSTNAME}.qdrant-headless:6335"
+              if [ "${HOSTNAME}" = "qdrant-0" ]; then
+                exec ./qdrant --uri "${peer}"
+              fi
+              exec ./qdrant --bootstrap "http://qdrant-0.qdrant-headless:6335" --uri "${peer}"
+          env:
+            - name: QDRANT__CLUSTER__ENABLED
+              value: {{ gt (int .Values.qdrant.replicas) 1 | quote }}
+          ports:
+            - {name: http, containerPort: 6333}
+            - {name: peer, containerPort: 6335}
+          readinessProbe: {httpGet: {path: /readyz, port: http}, initialDelaySeconds: 10}
+          livenessProbe: {httpGet: {path: /healthz, port: http}, initialDelaySeconds: 30}
+          resources:
+            requests: {cpu: 500m, memory: 2Gi}
+            limits: {cpu: "2", memory: 8Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: storage, mountPath: /qdrant/storage}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 256Mi}
+  volumeClaimTemplates:
+    - metadata: {name: storage}
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.qdrant.storageClassName }}
+        resources:
+          requests: {storage: {{ .Values.qdrant.storage }}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: qdrant
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: qdrant}

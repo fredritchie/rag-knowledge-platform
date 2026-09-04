@@ -2,7 +2,7 @@
 
 The platform now has a reusable, three-AZ AWS foundation for dev, staging, and production. Public subnets contain only the internet-facing ALB and NAT gateways. Application, Qdrant, GPU, and PostgreSQL capacity stays private.
 
-Provisioned services include VPC networking and encrypted flow logs; private EKS general, Qdrant, and GPU pools; ALB and WAF with optional ACM/Route53 DNS; encrypted S3, SQS/DLQ, Aurora, and ECR; Cognito and Secrets Manager; and CloudWatch/SNS monitoring.
+Provisioned services include VPC networking and encrypted flow logs; private EKS general, ingestion, Qdrant, and GPU pools; ALB and WAF with optional ACM/Route53 DNS; encrypted S3, SQS/DLQ, Aurora, and ECR; Cognito and Secrets Manager; and CloudWatch/SNS monitoring.
 
 Terraform creates the ALB target group but does not register public node targets. A later Kubernetes/GitOps phase must deploy workloads and bind private services. Runtime secret values are populated outside Terraform so plaintext values never enter state.
 
@@ -62,8 +62,8 @@ Phase 13 is complete only when all of the following criteria are satisfied.
 
 - The VPC spans three availability zones with one public and one private subnet in each zone.
 - Public route tables expose only the ALB and NAT path; EKS nodes and Aurora instances have no public IP addresses.
-- The EKS API endpoint is private. The general and Qdrant managed-node instances register with the cluster and report `Ready`; the GPU node group is `ACTIVE`, has the expected join configuration, and may remain at desired size zero in cost-controlled environments.
-- Qdrant and GPU nodes have their dedicated labels and `NoSchedule` taints. Deploying the Qdrant StatefulSet itself belongs to the subsequent Kubernetes/GitOps phase.
+- The EKS API endpoint is private. General, ingestion, and Qdrant managed-node instances register with the cluster and report `Ready`; the GPU node group is `ACTIVE`, has the expected join configuration, and may remain at desired size zero in cost-controlled environments.
+- Ingestion, Qdrant, and GPU nodes have dedicated labels and `NoSchedule` taints. Deploying their workloads belongs to Phase 14.
 - Aurora PostgreSQL is reachable from approved Kubernetes workloads but not from the internet. Encryption, IAM database authentication, backups, enhanced monitoring, log export, and Secrets Manager-managed credentials are enabled.
 - The canonical S3 bucket is private, versioned, and KMS-encrypted. Object events under `tenants/` reach the encrypted ingestion queue, and exhausted retries reach the DLQ.
 - All expected immutable ECR repositories exist with push scanning and lifecycle retention enabled.

@@ -1,0 +1,32 @@
+config:
+  awsRegion: us-east-1
+  ingestionQueueUrl: https://sqs.us-east-1.amazonaws.com/123456789012/rag-platform-dev-ingestion
+  appUrl: http://replace-with-alb-hostname
+
+networkPolicy:
+  # Use the exact private subnet CIDRs containing Aurora and VPC endpoints.
+  postgresqlCidrs: [10.10.16.0/20, 10.10.32.0/20, 10.10.48.0/20]
+  s3EndpointCidrs: [10.10.16.0/20, 10.10.32.0/20, 10.10.48.0/20]
+  # ALB source addresses are allocated from the public subnets.
+  albSourceCidrs: [10.10.0.0/24, 10.10.1.0/24, 10.10.2.0/24]
+  ciliumFqdnEgress:
+    postgresqlHost: rag-platform-dev.cluster-replace-me.us-east-1.rds.amazonaws.com
+
+externalSecrets:
+  enabled: true
+  runtimeSecretArn: arn:aws:secretsmanager:us-east-1:123456789012:secret:rag-platform-dev/runtime
+  databaseSecretArn: arn:aws:secretsmanager:us-east-1:123456789012:secret:rds/replace-me
+
+keda:
+  enabled: true
+
+targetGroupBinding:
+  enabled: true
+  targetGroupARN: arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/replace-me/replace-me
+
+ollama:
+  enabled: false
+
+qdrant:
+  replicas: 1
+  storage: 20Gi

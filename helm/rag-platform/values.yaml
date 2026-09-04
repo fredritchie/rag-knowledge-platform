@@ -14,12 +14,15 @@ images:
   ollamaRuntime:
     repository: 000000000000.dkr.ecr.us-east-1.amazonaws.com/rag/ollama-runtime
     digest: ""
+  qdrant:
+    repository: qdrant/qdrant
+    digest: ""
 
 replicaCount:
-  frontend: 1
+  frontend: 2
   api: 2
-  ingestionWorker: 1
-  driveSync: 1
+  ingestionWorker: 2
+  driveSync: 2
   ollamaRuntime: 1
 
 config:
@@ -27,6 +30,8 @@ config:
   ollamaUrl: http://rag-platform-ollama-runtime:11434
   apiUrl: http://rag-platform-api:8080
   appUrl: https://rag.example.com
+  awsRegion: us-east-1
+  ingestionQueueUrl: ""
 
 secret:
   name: rag-platform-runtime
@@ -35,13 +40,75 @@ secret:
 serviceAccount:
   create: true
   name: ""
+  annotations: {}
+workerServiceAccount:
+  create: true
+  name: rag-platform-workers
+
+scheduling:
+  general:
+    nodeSelector: {workload: general}
+  ingestion:
+    nodeSelector: {workload: ingestion}
+    tolerations:
+      - {key: dedicated, operator: Equal, value: ingestion, effect: NoSchedule}
+  qdrant:
+    nodeSelector: {workload: qdrant}
+    tolerations:
+      - {key: dedicated, operator: Equal, value: qdrant, effect: NoSchedule}
+  gpu:
+    nodeSelector: {workload: gpu}
+    tolerations:
+      - {key: nvidia.com/gpu, operator: Equal, value: "true", effect: NoSchedule}
+
+networkPolicy:
+  enabled: true
+  # Standard NetworkPolicy cannot match DNS names. Supply the private Aurora and
+  # S3 VPC endpoint CIDRs for each environment; 0.0.0.0/0 is intentionally rejected.
+  postgresqlCidrs: []
+  s3EndpointCidrs: []
+  albSourceCidrs: []
+  ciliumFqdnEgress:
+    enabled: true
+    postgresqlHost: ""
+    workerHosts:
+      - "*.s3.us-east-1.amazonaws.com"
+      - "sqs.us-east-1.amazonaws.com"
+      - "www.googleapis.com"
+      - "oauth2.googleapis.com"
+
+externalSecrets:
+  enabled: false
+  secretStoreName: aws-secrets-manager
+  runtimeSecretArn: ""
+  databaseSecretArn: ""
+  refreshInterval: 1h
+
+keda:
+  enabled: false
+  queueLength: "5"
+  minReplicaCount: 2
+  maxReplicaCount: 20
+
+targetGroupBinding:
+  enabled: false
+  targetGroupARN: ""
 
 ollama:
+  enabled: false
   storage: 20Gi
+
+qdrant:
+  replicas: 3
+  storage: 100Gi
+  storageClassName: gp3
+
+storageClass:
+  create: true
+  name: gp3
 
 admissionPolicy:
   enabled: false
   imagePattern: "*.dkr.ecr.*.amazonaws.com/rag/*"
   certificateIdentity: "https://github.com/replace-me/production-rag-knowledge-platform/.github/workflows/supply-chain.yml@refs/heads/main"
   certificateIssuer: "https://token.actions.githubusercontent.com"
-
