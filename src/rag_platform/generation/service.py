@@ -70,11 +70,11 @@ class GenerationService:
             llm_metrics = getattr(self.llm, "last_metrics", {})
             generated_tokens = llm_metrics.get("generated_tokens")
             tokens_per_second = llm_metrics.get("tokens_per_second")
-            if isinstance(generated_tokens, (int, float)):
+            if isinstance(generated_tokens, int | float):
                 RAG_GENERATED_TOKENS.labels(service_var.get(), config.model_version).inc(
                     generated_tokens
                 )
-            if isinstance(tokens_per_second, (int, float)):
+            if isinstance(tokens_per_second, int | float):
                 RAG_GENERATION_TOKENS_PER_SECOND.labels(
                     service_var.get(), config.model_version
                 ).set(tokens_per_second)

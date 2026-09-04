@@ -65,7 +65,7 @@ class OllamaClient:
     def _record_metrics(self, body: dict[str, object]) -> None:
         eval_count = body.get("eval_count")
         eval_duration = body.get("eval_duration")
-        if isinstance(eval_count, (int, float)) and isinstance(eval_duration, (int, float)):
+        if isinstance(eval_count, int | float) and isinstance(eval_duration, int | float):
             seconds = float(eval_duration) / 1_000_000_000
             self.last_metrics = {
                 "generated_tokens": float(eval_count),
