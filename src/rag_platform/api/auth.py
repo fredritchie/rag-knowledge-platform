@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from rag_platform.api.errors import ForbiddenError
 from rag_platform.application.db.models import TenantMembership, User
 from rag_platform.config import AuthSettings
+from rag_platform.observability import observe_stage, set_tenant_id
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -75,25 +76,26 @@ class CognitoJWTVerifier:
         return keys
 
     async def verify(self, token: str) -> TokenClaims:
-        try:
-            _require_canonical_jwt(token)
-            header = jwt.get_unverified_header(token)
-            key_data = (await self._keys()).get(header.get("kid"))
-            if not key_data:
-                raise jwt.InvalidTokenError("Unknown signing key")
-            key = RSAAlgorithm.from_jwk(json.dumps(key_data))
-            payload = jwt.decode(
-                token,
-                key=key,
-                algorithms=self.config.algorithms,
-                audience=self.config.audience,
-                issuer=self.config.issuer,
-                leeway=self.config.clock_skew_seconds,
-                options={"require": ["exp", "iat", "sub"]},
-            )
-            tenant_id = str(payload[self.config.tenant_claim])
-        except (jwt.PyJWTError, KeyError, TypeError, ValueError) as exc:
-            raise ForbiddenError("Invalid or expired bearer token") from exc
+        with observe_stage("auth.validate"):
+            try:
+                _require_canonical_jwt(token)
+                header = jwt.get_unverified_header(token)
+                key_data = (await self._keys()).get(header.get("kid"))
+                if not key_data:
+                    raise jwt.InvalidTokenError("Unknown signing key")
+                key = RSAAlgorithm.from_jwk(json.dumps(key_data))
+                payload = jwt.decode(
+                    token,
+                    key=key,
+                    algorithms=self.config.algorithms,
+                    audience=self.config.audience,
+                    issuer=self.config.issuer,
+                    leeway=self.config.clock_skew_seconds,
+                    options={"require": ["exp", "iat", "sub"]},
+                )
+                tenant_id = str(payload[self.config.tenant_claim])
+            except (jwt.PyJWTError, KeyError, TypeError, ValueError) as exc:
+                raise ForbiddenError("Invalid or expired bearer token") from exc
         roles = _claim_list(payload.get(self.config.role_claim))
         groups = _claim_list(payload.get(self.config.group_claim))
         return TokenClaims(
@@ -147,20 +149,23 @@ async def request_context(
     # select another tenant only when this user has an active membership there.
     requested_tenant_id = request.headers.get("X-Tenant-ID")
     effective_tenant_id = requested_tenant_id or claims.tenant_id
-    result = await session.execute(
-        select(User, TenantMembership)
-        .join(TenantMembership, TenantMembership.user_id == User.id)
-        .where(
-            User.external_subject == claims.subject,
-            User.status == "ACTIVE",
-            TenantMembership.tenant_id == effective_tenant_id,
-            TenantMembership.active.is_(True),
+    with observe_stage("authorization.resolve"):
+        result = await session.execute(
+            select(User, TenantMembership)
+            .join(TenantMembership, TenantMembership.user_id == User.id)
+            .where(
+                User.external_subject == claims.subject,
+                User.status == "ACTIVE",
+                TenantMembership.tenant_id == effective_tenant_id,
+                TenantMembership.active.is_(True),
+            )
         )
-    )
-    row = result.first()
+        row = result.first()
     if row is None:
         raise ForbiddenError("User is not an active member of this tenant")
     user, membership = row
+    request.state.tenant_id = membership.tenant_id
+    set_tenant_id(membership.tenant_id)
     return RequestContext(
         user_id=user.id,
         external_subject=user.external_subject,

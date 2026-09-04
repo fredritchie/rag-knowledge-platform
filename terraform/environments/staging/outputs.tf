@@ -1,6 +1,7 @@
 output "application_url" { value = module.platform.application_url }
 output "eks_cluster_name" { value = module.platform.eks_cluster_name }
 output "document_bucket" { value = module.platform.document_bucket }
+output "telemetry_bucket" { value = module.platform.telemetry_bucket }
 output "ingestion_queue_url" { value = module.platform.ingestion_queue_url }
 output "ingestion_dlq_url" { value = module.platform.ingestion_dlq_url }
 output "ecr_repository_urls" { value = module.platform.ecr_repository_urls }

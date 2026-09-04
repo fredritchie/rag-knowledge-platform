@@ -1,0 +1,19 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {"id": 1, "title": "GPU utilization", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}, "fieldConfig": {"defaults": {"unit": "percent"}}, "targets": [{"refId": "A", "expr": "avg by (gpu, modelName) (DCGM_FI_DEV_GPU_UTIL)", "legendFormat": "GPU {{gpu}} {{modelName}}"}]},
+    {"id": 2, "title": "VRAM used", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0}, "fieldConfig": {"defaults": {"unit": "decmbytes"}}, "targets": [{"refId": "A", "expr": "DCGM_FI_DEV_FB_USED", "legendFormat": "GPU {{gpu}}"}]},
+    {"id": 3, "title": "Temperature", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0}, "fieldConfig": {"defaults": {"unit": "celsius"}}, "targets": [{"refId": "A", "expr": "DCGM_FI_DEV_GPU_TEMP", "legendFormat": "GPU {{gpu}}"}]},
+    {"id": 4, "title": "Power", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}, "fieldConfig": {"defaults": {"unit": "watt"}}, "targets": [{"refId": "A", "expr": "DCGM_FI_DEV_POWER_USAGE", "legendFormat": "GPU {{gpu}}"}]},
+    {"id": 5, "title": "Generation tokens / sec", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}, "targets": [{"refId": "A", "expr": "rag_generation_tokens_per_second", "legendFormat": "{{model}}"}]}
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["rag-platform", "gpu"],
+  "templating": {"list": []},
+  "time": {"from": "now-3h", "to": "now"},
+  "title": "RAG Platform / GPU",
+  "uid": "rag-platform-gpu",
+  "version": 1
+}

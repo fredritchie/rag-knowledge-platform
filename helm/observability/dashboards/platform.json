@@ -1,0 +1,22 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {"id": 1, "title": "Ready nodes", "type": "stat", "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}, "targets": [{"refId": "A", "expr": "sum(kube_node_status_condition{condition=\"Ready\",status=\"true\"})"}]},
+    {"id": 2, "title": "Running pods", "type": "stat", "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}, "targets": [{"refId": "A", "expr": "sum(kube_pod_status_phase{phase=\"Running\"})"}]},
+    {"id": 3, "title": "Pod restarts / 15m", "type": "stat", "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}, "targets": [{"refId": "A", "expr": "sum(increase(kube_pod_container_status_restarts_total[15m]))"}]},
+    {"id": 4, "title": "CPU utilization", "type": "timeseries", "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}, "fieldConfig": {"defaults": {"unit": "percentunit"}}, "targets": [{"refId": "A", "expr": "1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))"}]},
+    {"id": 5, "title": "Memory utilization", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8}, "fieldConfig": {"defaults": {"unit": "percentunit"}}, "targets": [{"refId": "A", "expr": "1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)"}]},
+    {"id": 6, "title": "Disk utilization", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8}, "fieldConfig": {"defaults": {"unit": "percentunit"}}, "targets": [{"refId": "A", "expr": "1 - sum(node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay\"}) / sum(node_filesystem_size_bytes{fstype!~\"tmpfs|overlay\"})"}]},
+    {"id": 7, "title": "Network receive", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8}, "fieldConfig": {"defaults": {"unit": "Bps"}}, "targets": [{"refId": "A", "expr": "sum(rate(node_network_receive_bytes_total{device!=\"lo\"}[5m]))"}]},
+    {"id": 8, "title": "Structured application logs", "type": "logs", "gridPos": {"h": 10, "w": 24, "x": 0, "y": 16}, "datasource": {"type": "loki", "uid": "Loki"}, "targets": [{"refId": "A", "expr": "{namespace=\"rag-platform\"} | json"}]}
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["rag-platform", "platform"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "RAG Platform / Platform",
+  "uid": "rag-platform-platform",
+  "version": 1
+}

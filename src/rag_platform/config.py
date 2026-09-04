@@ -149,6 +149,17 @@ class HealthSettings(ConfigSection):
     timeout_seconds: float = Field(2.0, gt=0)
 
 
+class ObservabilitySettings(ConfigSection):
+    enabled: bool = False
+    service_name: str = "rag-platform"
+    log_level: str = "INFO"
+    # Kubernetes must scrape the pod interface; ingress is restricted by NetworkPolicy.
+    metrics_host: str = "0.0.0.0"  # nosec B104
+    metrics_port: int = Field(9090, ge=1, le=65535)
+    otlp_traces_endpoint: str = "http://localhost:4318/v1/traces"
+    trace_sample_ratio: float = Field(0.1, ge=0.0, le=1.0)
+
+
 class WorkerSettings(ConfigSection):
     poll_interval_seconds: float = Field(2.0, gt=0)
     batch_size: int = Field(5, ge=1, le=100)
@@ -221,6 +232,7 @@ class Settings(ConfigSection):
     auth: AuthSettings = AuthSettings()
     storage: StorageSettings = StorageSettings()
     health: HealthSettings = HealthSettings()
+    observability: ObservabilitySettings = ObservabilitySettings()
     worker: WorkerSettings = WorkerSettings()
     event_ingestion: EventIngestionSettings = EventIngestionSettings()
     drive: DriveSettings = DriveSettings()

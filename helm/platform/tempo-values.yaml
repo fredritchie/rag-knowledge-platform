@@ -1,0 +1,37 @@
+serviceAccount:
+  create: true
+  name: tempo
+  automountServiceAccountToken: true
+
+tempo:
+  reportingEnabled: false
+  retention: 168h
+  receivers:
+    otlp:
+      protocols:
+        grpc: {endpoint: "0.0.0.0:4317"}
+        http: {endpoint: "0.0.0.0:4318"}
+  storage:
+    trace:
+      backend: s3
+      s3:
+        bucket: replace-with-telemetry-bucket
+        region: us-east-1
+      wal: {path: /var/tempo/wal}
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities: {drop: [ALL]}
+
+nodeSelector: {workload: general}
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile: {type: RuntimeDefault}
+persistence:
+  enabled: true
+  size: 20Gi
+serviceMonitor:
+  enabled: true

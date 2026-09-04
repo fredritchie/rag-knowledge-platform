@@ -8,6 +8,15 @@ from rag_platform.config import Settings
 from rag_platform.domain.models import Citation, RAGResponse
 from rag_platform.generation.llm import LanguageModel, OllamaClient
 from rag_platform.generation.prompts import format_context, load_prompt
+from rag_platform.observability import (
+    RAG_CITATIONS,
+    RAG_GENERATED_TOKENS,
+    RAG_GENERATION_TOKENS_PER_SECOND,
+    RAG_QUERIES,
+    RAG_STAGE_DURATION,
+    observe_stage,
+    service_var,
+)
 from rag_platform.retrieval.service import RetrievalService
 from rag_platform.security.rag import secure_system_prompt, validate_model_output
 
@@ -38,26 +47,43 @@ class GenerationService:
             included = []
             generation_ms = 0.0
         else:
-            template = load_prompt(config.prompt_dir, config.prompt_version)
-            context, included = format_context(results, config.max_context_tokens)
-            prompt = template.user.format(
-                question=question,
-                context=context,
-                insufficient_context_message=config.insufficient_context_message,
-            )
+            with observe_stage("prompt.build"):
+                template = load_prompt(config.prompt_dir, config.prompt_version)
+                context, included = format_context(results, config.max_context_tokens)
+                prompt = template.user.format(
+                    question=question,
+                    context=context,
+                    insufficient_context_message=config.insufficient_context_message,
+                )
             generation_started = perf_counter()
-            answer = validate_model_output(
-                self.llm.generate(
-                    system=secure_system_prompt(
-                        template.system, tools_enabled=self.settings.security.tools_enabled
+            with observe_stage("llm.generate"):
+                answer = validate_model_output(
+                    self.llm.generate(
+                        system=secure_system_prompt(
+                            template.system, tools_enabled=self.settings.security.tools_enabled
+                        ),
+                        prompt=prompt,
                     ),
-                    prompt=prompt,
-                ),
-                source_count=len(included),
-            )
+                    source_count=len(included),
+                )
             generation_ms = (perf_counter() - generation_started) * 1000
+            llm_metrics = getattr(self.llm, "last_metrics", {})
+            generated_tokens = llm_metrics.get("generated_tokens")
+            tokens_per_second = llm_metrics.get("tokens_per_second")
+            if isinstance(generated_tokens, (int, float)):
+                RAG_GENERATED_TOKENS.labels(service_var.get(), config.model_version).inc(
+                    generated_tokens
+                )
+            if isinstance(tokens_per_second, (int, float)):
+                RAG_GENERATION_TOKENS_PER_SECOND.labels(
+                    service_var.get(), config.model_version
+                ).set(tokens_per_second)
 
         elapsed_ms = (perf_counter() - started) * 1000
+        outcome = "unsupported" if not results else "answered"
+        RAG_QUERIES.labels(service_var.get(), outcome).inc()
+        RAG_CITATIONS.labels(service_var.get()).observe(len(included))
+        RAG_STAGE_DURATION.labels(service_var.get(), "end_to_end").observe(elapsed_ms / 1000)
         response = RAGResponse(
             answer=answer,
             sources=[

@@ -17,7 +17,7 @@ The chart uses both `nodeSelector` and required node affinity. Dedicated pools r
 
 ## Cluster components and identity
 
-`scripts/install_kubernetes_platform.sh` installs pinned releases for Cilium in AWS VPC CNI chaining mode, AWS Load Balancer Controller, External Secrets Operator, Metrics Server, KEDA, Kyverno, and the NVIDIA device plugin. Terraform installs the EKS Pod Identity Agent and EBS CSI add-on. Cilium chaining retains AWS VPC CNI IP allocation while enforcing standard and Cilium network policies.
+`scripts/install_kubernetes_platform.sh` installs the pinned Phase 14 controllers and Phase 15 observability stack. Its additional telemetry bucket, SNS topic, and Grafana-secret prerequisites are documented in the Phase 15 runbook. Terraform installs the EKS Pod Identity Agent and EBS CSI add-on. Cilium chaining retains AWS VPC CNI IP allocation while enforcing standard and Cilium network policies.
 
 Terraform provisions Pod Identity roles for workers to access only project S3/SQS/KMS resources, External Secrets to read the runtime and Aurora secrets, KEDA to read queue depth, AWS Load Balancer Controller to manage only the existing target group, and EBS CSI to manage volumes. The chart binds its frontend Service to the existing WAF-protected ALB with `TargetGroupBinding`; it does not create a second load balancer.
 

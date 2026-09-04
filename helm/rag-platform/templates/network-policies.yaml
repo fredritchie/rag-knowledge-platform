@@ -152,6 +152,36 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: observability-egress
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/component, operator: In, values: [api, ingestion-worker, drive-sync]}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitoring}
+      ports: [{protocol: TCP, port: 4318}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus-metrics-ingress
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/component, operator: In, values: [api, ingestion-worker, drive-sync]}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitoring}
+      ports: [{protocol: TCP, port: {{ .Values.observability.metricsPort }}}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: workers-to-pod-identity-agent
 spec:
   podSelector:

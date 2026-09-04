@@ -24,6 +24,7 @@ from rag_platform.application.db.models import (
 from rag_platform.application.db.session import Database
 from rag_platform.config import Settings, load_settings
 from rag_platform.ingestion.service import IngestionService
+from rag_platform.observability import APPLICATION_ERRORS, configure_observability, service_var
 from rag_platform.retrieval.service import RetrievalService
 from rag_platform.security.rag import analyze_content
 from rag_platform.workers.ingestion import IngestionWorker, ProcessingResult
@@ -370,7 +371,11 @@ class S3EventWorker:
             await self.queue.acknowledge(message.receipt_handle)
             return True
         except Exception as exc:
-            logger.exception("S3 event message failed: %s", exc)
+            APPLICATION_ERRORS.labels(service_var.get(), "s3_event", type(exc).__name__).inc()
+            logger.exception(
+                "S3 event message failed",
+                extra={"component": "s3_event", "operation": "process_message"},
+            )
             return False
 
     async def run_once(self) -> int:
@@ -386,6 +391,7 @@ class S3EventWorker:
 
 async def _main() -> None:
     settings = load_settings()
+    configure_observability(settings.observability, "ingestion-worker")
     if not settings.event_ingestion.enabled or not settings.event_ingestion.queue_url:
         raise RuntimeError("event_ingestion.enabled and event_ingestion.queue_url are required")
     database = Database(settings.database)
@@ -398,5 +404,4 @@ async def _main() -> None:
 
 
 def run() -> None:
-    logging.basicConfig(level=logging.INFO)
     asyncio.run(_main())

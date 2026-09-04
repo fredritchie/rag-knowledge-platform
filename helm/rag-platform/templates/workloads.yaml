@@ -2,7 +2,7 @@
 {{- $workloads := list
   (dict "name" "frontend" "image" "frontend" "replicas" .Values.replicaCount.frontend "port" 3000 "command" (list) "probe" "/" "pool" "general")
   (dict "name" "api" "image" "api" "replicas" .Values.replicaCount.api "port" 8080 "command" (list "rag-api") "probe" "/live" "pool" "general")
-  (dict "name" "ingestion-worker" "image" "ingestionWorker" "replicas" .Values.replicaCount.ingestionWorker "port" 0 "command" (list "rag-ingestion-worker") "probe" "" "pool" "ingestion")
+  (dict "name" "ingestion-worker" "image" "ingestionWorker" "replicas" .Values.replicaCount.ingestionWorker "port" 0 "command" (list "rag-s3-event-worker") "probe" "" "pool" "ingestion")
   (dict "name" "drive-sync" "image" "driveSync" "replicas" .Values.replicaCount.driveSync "port" 0 "command" (list "rag-sync-worker") "probe" "" "pool" "general")
 -}}
 {{- range $workload := $workloads }}
@@ -68,6 +68,11 @@ spec:
             - {name: RAG__GENERATION__BASE_URL, value: {{ $root.Values.config.ollamaUrl | quote }}}
             - {name: AWS_REGION, value: {{ $root.Values.config.awsRegion | quote }}}
             - {name: RAG__EVENT_INGESTION__QUEUE_URL, value: {{ $root.Values.config.ingestionQueueUrl | quote }}}
+            - {name: RAG__OBSERVABILITY__ENABLED, value: {{ $root.Values.observability.enabled | quote }}}
+            - {name: RAG__OBSERVABILITY__SERVICE_NAME, value: {{ $workload.name | quote }}}
+            - {name: RAG__OBSERVABILITY__METRICS_PORT, value: {{ $root.Values.observability.metricsPort | quote }}}
+            - {name: RAG__OBSERVABILITY__OTLP_TRACES_ENDPOINT, value: {{ $root.Values.observability.otlpTracesEndpoint | quote }}}
+            - {name: RAG__OBSERVABILITY__TRACE_SAMPLE_RATIO, value: {{ $root.Values.observability.traceSampleRatio | quote }}}
             - {name: RAG__DRIVE__ENABLED, value: {{ if eq $workload.name "drive-sync" }}"true"{{ else }}"false"{{ end }}}
             - name: RAG__DATABASE__URL
               valueFrom:
@@ -79,6 +84,12 @@ spec:
           {{- if gt (int $workload.port) 0 }}
           ports:
             - {name: http, containerPort: {{ $workload.port }}}
+            {{- if and (ne $workload.name "frontend") $root.Values.observability.enabled }}
+            - {name: metrics, containerPort: {{ $root.Values.observability.metricsPort }}}
+            {{- end }}
+          {{- else if and (ne $workload.name "frontend") $root.Values.observability.enabled }}
+          ports:
+            - {name: metrics, containerPort: {{ $root.Values.observability.metricsPort }}}
           {{- end }}
           {{- if $workload.probe }}
           livenessProbe:

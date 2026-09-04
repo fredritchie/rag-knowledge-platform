@@ -35,6 +35,7 @@ from rag_platform.api.storage import S3Storage
 from rag_platform.application.db.session import Database
 from rag_platform.config import Settings, load_settings
 from rag_platform.generation.service import GenerationService
+from rag_platform.observability import APPLICATION_ERRORS, configure_observability, service_var
 from rag_platform.retrieval.service import RetrievalService
 
 
@@ -47,6 +48,7 @@ def create_application(
 ) -> FastAPI:
     settings = settings or load_settings()
     database = database or Database(settings.database)
+    configure_observability(settings.observability, settings.observability.service_name)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -127,6 +129,7 @@ def create_application(
 
     @app.exception_handler(ApplicationError)
     async def application_error(request: Request, exc: ApplicationError) -> JSONResponse:
+        APPLICATION_ERRORS.labels(service_var.get(), "api", type(exc).__name__).inc()
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -139,6 +142,7 @@ def create_application(
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+        APPLICATION_ERRORS.labels(service_var.get(), "api", "RequestValidationError").inc()
         return JSONResponse(
             status_code=422,
             content={
@@ -151,6 +155,7 @@ def create_application(
 
     @app.exception_handler(Exception)
     async def unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+        APPLICATION_ERRORS.labels(service_var.get(), "api", type(exc).__name__).inc()
         return JSONResponse(
             status_code=500,
             content={

@@ -1,6 +1,7 @@
 output "application_url" { value = module.edge.application_url }
 output "eks_cluster_name" { value = module.kubernetes.cluster_name }
 output "document_bucket" { value = module.documents.bucket_id }
+output "telemetry_bucket" { value = module.telemetry.bucket_id }
 output "ingestion_queue_url" { value = module.queues.queue_url }
 output "ingestion_dlq_url" { value = module.queues.dlq_url }
 output "ecr_repository_urls" { value = module.ecr.repository_urls }

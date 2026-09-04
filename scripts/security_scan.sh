@@ -48,15 +48,21 @@ helm lint helm/rag-platform \
   --set-string images.api.digest="${PLACEHOLDER_DIGEST}" \
   --set-string images.ingestionWorker.digest="${PLACEHOLDER_DIGEST}" \
   --set-string images.driveSync.digest="${PLACEHOLDER_DIGEST}" \
-  --set-string images.ollamaRuntime.digest="${PLACEHOLDER_DIGEST}"
+  --set-string images.ollamaRuntime.digest="${PLACEHOLDER_DIGEST}" \
+  --set-string images.qdrant.digest="${PLACEHOLDER_DIGEST}"
 helm template rag-platform helm/rag-platform \
   --set-string images.frontend.digest="${PLACEHOLDER_DIGEST}" \
   --set-string images.api.digest="${PLACEHOLDER_DIGEST}" \
   --set-string images.ingestionWorker.digest="${PLACEHOLDER_DIGEST}" \
   --set-string images.driveSync.digest="${PLACEHOLDER_DIGEST}" \
   --set-string images.ollamaRuntime.digest="${PLACEHOLDER_DIGEST}" \
+  --set-string images.qdrant.digest="${PLACEHOLDER_DIGEST}" \
   > "${RESULTS_DIR}/rendered.yaml"
+helm lint helm/observability
+helm template rag-observability helm/observability --namespace monitoring \
+  > "${RESULTS_DIR}/observability-rendered.yaml"
 kubeconform -strict -summary -ignore-missing-schemas "${RESULTS_DIR}/rendered.yaml"
+kubeconform -strict -summary -ignore-missing-schemas "${RESULTS_DIR}/observability-rendered.yaml"
 trivy fs --skip-dirs .venv --skip-dirs security-env --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
 syft_with_tmpdir dir:. --exclude './.venv/**' --exclude './security-env/**' \
   -o cyclonedx-json="${RESULTS_DIR}/source.cdx.json"
