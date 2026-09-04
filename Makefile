@@ -1,4 +1,4 @@
-.PHONY: install install-ml migrate api ingestion-worker event-worker sync-worker frontend-install frontend-dev test test-all lint format check corpus services-build services-up services-ps services-logs services-down security-scan clean
+.PHONY: install install-ml migrate api ingestion-worker event-worker sync-worker frontend-install frontend-dev test test-all lint format check corpus services-build services-up services-ps services-logs services-down security-scan helm-check kubernetes-platform-install clean
 
 install:
 	python3 -m pip install -e '.[dev]'
@@ -62,6 +62,12 @@ services-down:
 
 security-scan:
 	./scripts/security_scan.sh
+
+helm-check:
+	./scripts/validate_helm.sh
+
+kubernetes-platform-install:
+	./scripts/install_kubernetes_platform.sh
 
 clean:
 	rm -rf .rag_data .pytest_cache .ruff_cache htmlcov .coverage

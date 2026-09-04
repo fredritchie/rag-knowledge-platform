@@ -1,0 +1,23 @@
+{{- if .Values.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "rag-platform.fullname" . }}-ingestion-worker
+spec:
+  scaleTargetRef:
+    name: {{ include "rag-platform.fullname" . }}-ingestion-worker
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: {{ .Values.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.keda.maxReplicaCount }}
+  fallback:
+    failureThreshold: 3
+    replicas: {{ .Values.keda.minReplicaCount }}
+  triggers:
+    - type: aws-sqs-queue
+      metadata:
+        queueURL: {{ required "config.ingestionQueueUrl is required when KEDA is enabled" .Values.config.ingestionQueueUrl }}
+        queueLength: {{ .Values.keda.queueLength | quote }}
+        awsRegion: {{ .Values.config.awsRegion }}
+        identityOwner: operator
+{{- end }}

@@ -35,6 +35,7 @@ resource "aws_acm_certificate_validation" "this" {
 resource "aws_lb" "this" {
   #checkov:skip=CKV2_AWS_76: The associated WAF uses AWSManagedRulesKnownBadInputsRuleSet, including Log4Shell inspection.
   #checkov:skip=CKV2_AWS_20: Domainless dev has no certificate and conditionally uses HTTP; production enables the HTTPS listener.
+  #checkov:skip=CKV_AWS_150: Deletion protection is mandatory in protected environments and intentionally disabled for disposable dev teardown.
   name                       = var.name
   internal                   = false
   load_balancer_type         = "application"
@@ -141,13 +142,13 @@ resource "aws_s3_bucket_policy" "logs" {
 resource "aws_lb_target_group" "application" {
   #checkov:skip=CKV_AWS_378: TLS terminates at the production ALB; traffic to private, security-group-restricted Kubernetes targets uses HTTP.
   name        = "${var.name}-app"
-  port        = 8080
+  port        = 3000
   protocol    = "HTTP"
   target_type = "ip"
   vpc_id      = var.vpc_id
   health_check {
     enabled             = true
-    path                = "/health/ready"
+    path                = "/"
     protocol            = "HTTP"
     healthy_threshold   = 2
     unhealthy_threshold = 3
@@ -175,6 +176,7 @@ resource "aws_lb_listener" "https" {
 #trivy:ignore:AVD-AWS-0054 Domainless dev uses this conditional listener only for infrastructure smoke tests; production enables HTTPS.
 resource "aws_lb_listener" "http" {
   #checkov:skip=CKV_AWS_103: Domainless dev deliberately uses HTTP; staging and production require the TLS 1.2+ HTTPS listener above.
+  #checkov:skip=CKV_AWS_2: This listener exists only for domainless dev; staging and production create only the HTTPS listener.
   count             = var.enable_https ? 0 : 1
   load_balancer_arn = aws_lb.this.arn
   port              = 80

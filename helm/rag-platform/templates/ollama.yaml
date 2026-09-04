@@ -1,3 +1,4 @@
+{{- if .Values.ollama.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -20,6 +21,16 @@ spec:
       labels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: ollama-runtime}
     spec:
       automountServiceAccountToken: false
+      nodeSelector:
+        {{- toYaml .Values.scheduling.gpu.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.scheduling.gpu.tolerations | nindent 8 }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - {key: workload, operator: In, values: [gpu]}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -34,7 +45,7 @@ spec:
           readinessProbe: {httpGet: {path: /api/tags, port: http}, initialDelaySeconds: 10}
           resources:
             requests: {cpu: 500m, memory: 1Gi}
-            limits: {cpu: "4", memory: 8Gi}
+            limits: {cpu: "4", memory: 8Gi, nvidia.com/gpu: "1"}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -58,3 +69,4 @@ metadata:
 spec:
   selector: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: ollama-runtime}
   ports: [{name: http, port: 11434, targetPort: http}]
+{{- end }}

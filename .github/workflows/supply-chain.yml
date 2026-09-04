@@ -43,13 +43,35 @@ jobs:
         with: {version: v3.18.4}
       - uses: yokawasa/action-setup-kube-tools@v0.12.0
         with: {kubeconform: 0.8.0}
+      - uses: aquasecurity/setup-trivy@v0.3.1
+        with: {version: v0.74.0}
       - name: Helm lint and schema validation
         env:
           DIGEST: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         run: |
-          helm lint helm/rag-platform $(for image in frontend api ingestionWorker driveSync ollamaRuntime; do printf '%s' " --set-string images.${image}.digest=${DIGEST}"; done)
-          helm template rag-platform helm/rag-platform $(for image in frontend api ingestionWorker driveSync ollamaRuntime; do printf '%s' " --set-string images.${image}.digest=${DIGEST}"; done) > rendered.yaml
+          helm lint helm/rag-platform $(for image in frontend api ingestionWorker driveSync ollamaRuntime qdrant; do printf '%s' " --set-string images.${image}.digest=${DIGEST}"; done)
+          helm template rag-platform helm/rag-platform --namespace rag-platform $(for image in frontend api ingestionWorker driveSync ollamaRuntime qdrant; do printf '%s' " --set-string images.${image}.digest=${DIGEST}"; done) > rendered.yaml
           kubeconform -strict -summary -ignore-missing-schemas rendered.yaml
+          trivy config --exit-code 1 --severity HIGH,CRITICAL rendered.yaml
+      - name: Render pinned Kubernetes add-ons
+        run: |
+          source helm/platform/versions.env
+          helm repo add cilium https://helm.cilium.io/
+          helm repo add eks https://aws.github.io/eks-charts
+          helm repo add external-secrets https://charts.external-secrets.io
+          helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+          helm repo add kedacore https://kedacore.github.io/charts
+          helm repo add kyverno https://kyverno.github.io/kyverno/
+          helm repo add nvdp https://nvidia.github.io/k8s-device-plugin
+          helm repo update
+          helm template cilium cilium/cilium --version "$CILIUM_VERSION" -n kube-system -f helm/platform/cilium-values.yaml > platform-rendered.yaml
+          helm template aws-load-balancer-controller eks/aws-load-balancer-controller --version "$AWS_LOAD_BALANCER_CONTROLLER_VERSION" -n kube-system -f helm/platform/aws-load-balancer-controller-values.yaml >> platform-rendered.yaml
+          helm template external-secrets external-secrets/external-secrets --version "$EXTERNAL_SECRETS_VERSION" -n external-secrets -f helm/platform/external-secrets-values.yaml >> platform-rendered.yaml
+          helm template metrics-server metrics-server/metrics-server --version "$METRICS_SERVER_VERSION" -n kube-system -f helm/platform/metrics-server-values.yaml >> platform-rendered.yaml
+          helm template keda kedacore/keda --version "$KEDA_VERSION" -n keda -f helm/platform/keda-values.yaml >> platform-rendered.yaml
+          helm template kyverno kyverno/kyverno --version "$KYVERNO_VERSION" -n kyverno -f helm/platform/kyverno-values.yaml >> platform-rendered.yaml
+          helm template nvidia-device-plugin nvdp/nvidia-device-plugin --version "$NVIDIA_DEVICE_PLUGIN_VERSION" -n kube-system -f helm/platform/nvidia-device-plugin-values.yaml >> platform-rendered.yaml
+          kubeconform -strict -summary -ignore-missing-schemas platform-rendered.yaml
 
   codeql:
     runs-on: ubuntu-latest

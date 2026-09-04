@@ -1,0 +1,5 @@
+nodeSelector:
+  workload: gpu
+tolerations:
+  - {key: nvidia.com/gpu, operator: Equal, value: "true", effect: NoSchedule}
+failOnInitError: true

@@ -12,6 +12,10 @@ variable "qdrant_instance_types" {
   type    = list(string)
   default = ["r7i.xlarge"]
 }
+variable "ingestion_instance_types" {
+  type    = list(string)
+  default = ["c7i.large"]
+}
 variable "gpu_instance_types" {
   type    = list(string)
   default = ["g5.xlarge"]
@@ -23,6 +27,10 @@ variable "general_desired_size" {
 variable "qdrant_desired_size" {
   type    = number
   default = 3
+}
+variable "ingestion_desired_size" {
+  type    = number
+  default = 1
 }
 variable "gpu_desired_size" {
   type    = number

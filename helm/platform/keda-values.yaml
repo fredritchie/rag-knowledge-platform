@@ -1,0 +1,10 @@
+operator:
+  replicaCount: 2
+serviceAccount:
+  operator:
+    create: true
+    name: keda-operator
+podDisruptionBudget:
+  operator:
+    enabled: true
+    minAvailable: 1

@@ -1,0 +1,15 @@
+cni:
+  chainingMode: aws-cni
+  exclusive: false
+enableIPv4Masquerade: false
+routingMode: native
+endpointRoutes:
+  enabled: true
+operator:
+  replicas: 2
+hubble:
+  relay:
+    enabled: true
+  ui:
+    enabled: true
+rollOutCiliumPods: true
