@@ -11,6 +11,7 @@ COPY tests ./tests
 COPY migrations ./migrations
 COPY config ./config
 COPY prompts ./prompts
+COPY helm/observability/dashboards ./helm/observability/dashboards
 
 FROM source AS test
 RUN python -m pip install --no-cache-dir '.[dev]' \
