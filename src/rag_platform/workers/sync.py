@@ -28,6 +28,12 @@ from rag_platform.application.db.models import (
 )
 from rag_platform.application.db.session import Database
 from rag_platform.config import Settings, load_settings
+from rag_platform.observability import (
+    DRIVE_SYNC_LAST_SUCCESS,
+    DRIVE_SYNC_RUNS,
+    configure_observability,
+    service_var,
+)
 
 logger = logging.getLogger("rag_platform.drive_sync_worker")
 
@@ -102,9 +108,7 @@ class GoogleDriveClient:
                 f"{self.settings.drive.api_base_url}/changes/startPageToken",
                 headers=await self._headers(connection),
                 params={
-                    "supportsAllDrives": str(
-                        self.settings.drive.include_shared_drives
-                    ).lower()
+                    "supportsAllDrives": str(self.settings.drive.include_shared_drives).lower()
                 },
             )
             response.raise_for_status()
@@ -147,9 +151,7 @@ class GoogleDriveClient:
             url = f"{self.settings.drive.api_base_url}/files/{file_id}"
             params = {"alt": "media", "supportsAllDrives": "true"}
         async with httpx.AsyncClient(timeout=300) as client:
-            response = await client.get(
-                url, headers=await self._headers(connection), params=params
-            )
+            response = await client.get(url, headers=await self._headers(connection), params=params)
             response.raise_for_status()
             return response.content
 
@@ -285,9 +287,7 @@ class DriveSyncService:
                     source.source_version = file.get("modifiedTime")
                     source.metadata_json = file
                     document.filename = Path(str(file.get("name") or file_id)).name
-                    await self._replace_permissions(
-                        session, document, file.get("permissions", [])
-                    )
+                    await self._replace_permissions(session, document, file.get("permissions", []))
                 else:
                     await self._publish_upsert(session, connection, source, file)
                 if event.status != "SKIPPED":
@@ -541,7 +541,10 @@ class SyncWorker:
         for connection_id in connection_ids:
             try:
                 await self.service.sync(connection_id)
+                DRIVE_SYNC_RUNS.labels(service_var.get(), "succeeded").inc()
+                DRIVE_SYNC_LAST_SUCCESS.labels(service_var.get()).set_to_current_time()
             except Exception:
+                DRIVE_SYNC_RUNS.labels(service_var.get(), "failed").inc()
                 logger.exception("Drive sync failed for %s", connection_id)
         return len(connection_ids)
 
@@ -554,6 +557,7 @@ class SyncWorker:
 
 async def _main() -> None:
     settings = load_settings()
+    configure_observability(settings.observability, "drive-sync")
     if not settings.drive.enabled:
         raise RuntimeError("drive.enabled must be true")
     database = Database(settings.database)
@@ -567,5 +571,4 @@ async def _main() -> None:
 
 
 def run() -> None:
-    logging.basicConfig(level=logging.INFO)
     asyncio.run(_main())

@@ -118,6 +118,15 @@ health:
   check_ollama: false
   timeout_seconds: 2
 
+observability:
+  enabled: false
+  service_name: rag-platform
+  log_level: INFO
+  metrics_host: 0.0.0.0
+  metrics_port: 9090
+  otlp_traces_endpoint: http://localhost:4318/v1/traces
+  trace_sample_ratio: 0.1
+
 worker:
   poll_interval_seconds: 2
   batch_size: 5

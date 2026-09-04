@@ -118,6 +118,116 @@ resource "aws_eks_pod_identity_association" "keda" {
   role_arn        = aws_iam_role.keda.arn
 }
 
+resource "aws_iam_role" "telemetry" {
+  name               = "${local.name}-telemetry"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json
+  tags               = local.tags
+}
+
+data "aws_iam_policy_document" "telemetry" {
+  statement {
+    actions   = ["s3:GetBucketLocation", "s3:ListBucket"]
+    resources = [module.telemetry.bucket_arn]
+  }
+  statement {
+    actions = [
+      "s3:AbortMultipartUpload",
+      "s3:DeleteObject",
+      "s3:GetObject",
+      "s3:ListMultipartUploadParts",
+      "s3:PutObject",
+    ]
+    resources = ["${module.telemetry.bucket_arn}/*"]
+  }
+  statement {
+    actions   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey"]
+    resources = [module.telemetry.kms_key_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "telemetry" {
+  name   = "telemetry-object-storage"
+  role   = aws_iam_role.telemetry.id
+  policy = data.aws_iam_policy_document.telemetry.json
+}
+
+resource "aws_eks_pod_identity_association" "loki" {
+  cluster_name    = module.kubernetes.cluster_name
+  namespace       = "monitoring"
+  service_account = "loki"
+  role_arn        = aws_iam_role.telemetry.arn
+}
+
+resource "aws_eks_pod_identity_association" "tempo" {
+  cluster_name    = module.kubernetes.cluster_name
+  namespace       = "monitoring"
+  service_account = "tempo"
+  role_arn        = aws_iam_role.telemetry.arn
+}
+
+resource "aws_iam_role" "grafana" {
+  name               = "${local.name}-grafana"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json
+  tags               = local.tags
+}
+
+data "aws_iam_policy_document" "grafana" {
+  #checkov:skip=CKV_AWS_355: CloudWatch ListMetrics/GetMetricData and Resource Groups Tagging API reads do not support resource-level ARNs.
+  #checkov:skip=CKV_AWS_356: Read-only CloudWatch discovery APIs require Resource "*" by AWS design.
+  statement {
+    actions = [
+      "cloudwatch:GetMetricData",
+      "cloudwatch:GetMetricStatistics",
+      "cloudwatch:ListMetrics",
+      "tag:GetResources",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "grafana" {
+  name   = "read-cloudwatch-metrics"
+  role   = aws_iam_role.grafana.id
+  policy = data.aws_iam_policy_document.grafana.json
+}
+
+resource "aws_eks_pod_identity_association" "grafana" {
+  cluster_name    = module.kubernetes.cluster_name
+  namespace       = "monitoring"
+  service_account = "grafana"
+  role_arn        = aws_iam_role.grafana.arn
+}
+
+resource "aws_iam_role" "alertmanager" {
+  name               = "${local.name}-alertmanager"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json
+  tags               = local.tags
+}
+
+data "aws_iam_policy_document" "alertmanager" {
+  statement {
+    actions   = ["sns:Publish"]
+    resources = [module.monitoring.sns_topic_arn]
+  }
+  statement {
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = [module.monitoring.kms_key_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "alertmanager" {
+  name   = "publish-alerts"
+  role   = aws_iam_role.alertmanager.id
+  policy = data.aws_iam_policy_document.alertmanager.json
+}
+
+resource "aws_eks_pod_identity_association" "alertmanager" {
+  cluster_name    = module.kubernetes.cluster_name
+  namespace       = "monitoring"
+  service_account = "alertmanager"
+  role_arn        = aws_iam_role.alertmanager.arn
+}
+
 resource "aws_iam_role" "load_balancer_controller" {
   name               = "${local.name}-load-balancer-controller"
   assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json

@@ -5,8 +5,9 @@ locals {
   tags = merge(var.tags, {
     Project = "rag-platform", Environment = var.environment, ManagedBy = "Terraform"
   })
-  bucket_name = "rag-platform-${var.environment}-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
-  auth_domain = coalesce(var.domain_name, "localhost:3000")
+  bucket_name           = "rag-platform-${var.environment}-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
+  telemetry_bucket_name = "rag-platform-${var.environment}-telemetry-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
+  auth_domain           = coalesce(var.domain_name, "localhost:3000")
   github_oidc_subject_prefix = coalesce(
     var.github_oidc_subject_prefix,
     "repo:${var.github_repository}",
@@ -30,6 +31,13 @@ module "documents" {
   name          = local.bucket_name
   force_destroy = !var.deletion_protection
   tags          = local.tags
+}
+
+module "telemetry" {
+  source        = "../s3"
+  name          = local.telemetry_bucket_name
+  force_destroy = !var.deletion_protection
+  tags          = merge(local.tags, { DataClass = "operational-telemetry" })
 }
 
 module "queues" {

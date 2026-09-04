@@ -6,6 +6,7 @@ from rag_platform.config import Settings
 from rag_platform.domain.models import ChunkRecord, SearchResult
 from rag_platform.domain.state_machine import ensure_transition
 from rag_platform.domain.states import DocumentStatus
+from rag_platform.observability import RAG_STAGE_DURATION, observe_stage, service_var
 from rag_platform.retrieval.embeddings import Embedder, build_embedder
 from rag_platform.retrieval.lexical import bm25_search
 from rag_platform.retrieval.reranker import Reranker, build_reranker
@@ -106,16 +107,18 @@ class RetrievalService:
         limit = top_k or retrieval.top_k
         candidate_k = max(limit, retrieval.candidate_k)
         stage_started = perf_counter()
-        query_vector = self.embedder.embed_query(query)
+        with observe_stage("query.embed"):
+            query_vector = self.embedder.embed_query(query)
         embedding_ms = (perf_counter() - stage_started) * 1000
         stage_started = perf_counter()
-        dense_hits = self.vector_store.search(
-            query_vector,
-            limit=candidate_k,
-            tenant_id=self.settings.tenant_id,
-            document_ids=document_ids,
-            score_threshold=retrieval.similarity_threshold,
-        )
+        with observe_stage("qdrant.search"):
+            dense_hits = self.vector_store.search(
+                query_vector,
+                limit=candidate_k,
+                tenant_id=self.settings.tenant_id,
+                document_ids=document_ids,
+                score_threshold=retrieval.similarity_threshold,
+            )
         dense_ms = (perf_counter() - stage_started) * 1000
         dense_scores = {hit.chunk_id: hit.score for hit in dense_hits}
         chunk_by_id = {
@@ -130,7 +133,8 @@ class RetrievalService:
             all_chunks = self.catalog.get_all_chunks(
                 tenant_id=self.settings.tenant_id, document_ids=document_ids
             )
-            lexical_hits = bm25_search(query, all_chunks, candidate_k)
+            with observe_stage("bm25.search"):
+                lexical_hits = bm25_search(query, all_chunks, candidate_k)
             lexical_ms = (perf_counter() - stage_started) * 1000
             lexical_scores = dict(lexical_hits)
             missing_ids = [chunk_id for chunk_id, _ in lexical_hits if chunk_id not in chunk_by_id]
@@ -143,7 +147,8 @@ class RetrievalService:
                 }
             )
             stage_started = perf_counter()
-            ranked_ids = self._fuse(dense_hits, lexical_hits)
+            with observe_stage("rank.fuse"):
+                ranked_ids = self._fuse(dense_hits, lexical_hits)
             fusion_ms = (perf_counter() - stage_started) * 1000
         else:
             lexical_scores = {}
@@ -164,9 +169,11 @@ class RetrievalService:
         reranker_ms = 0.0
         if selected_mode == "hybrid_rerank":
             stage_started = perf_counter()
-            results = self.reranker.rerank(query, results)
+            with observe_stage("rerank"):
+                results = self.reranker.rerank(query, results)
             reranker_ms = (perf_counter() - stage_started) * 1000
         elapsed_ms = (perf_counter() - started) * 1000
+        RAG_STAGE_DURATION.labels(service_var.get(), "retrieval").observe(elapsed_ms / 1000)
         self.last_metrics = {
             "embedding_latency_ms": embedding_ms,
             "dense_latency_ms": dense_ms,

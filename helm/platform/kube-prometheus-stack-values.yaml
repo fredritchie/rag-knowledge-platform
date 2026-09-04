@@ -1,0 +1,135 @@
+alertmanager:
+  enabled: true
+  serviceAccount:
+    create: true
+    name: alertmanager
+    automountServiceAccountToken: true
+  config:
+    global: {resolve_timeout: 5m}
+    route:
+      receiver: sns
+      group_by: [alertname, namespace, severity]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+    receivers:
+      - name: sns
+        sns_configs:
+          - topic_arn: replace-with-sns-topic-arn
+            sigv4: {region: us-east-1}
+            send_resolved: true
+  alertmanagerSpec:
+    replicas: 2
+    nodeSelector: {workload: general}
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources: {requests: {storage: 10Gi}}
+
+grafana:
+  enabled: true
+  serviceAccount:
+    create: true
+    name: grafana
+    automountServiceAccountToken: false
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  sidecar:
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities: {drop: [ALL]}
+      seccompProfile: {type: RuntimeDefault}
+    dashboards:
+      enabled: true
+      searchNamespace: monitoring
+      label: grafana_dashboard
+      labelValue: "1"
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: {drop: [ALL]}
+    datasources:
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: {drop: [ALL]}
+  additionalDataSources:
+    - name: Loki
+      uid: Loki
+      type: loki
+      access: proxy
+      url: http://loki-gateway.monitoring.svc.cluster.local
+      jsonData: {maxLines: 1000}
+    - name: Tempo
+      uid: Tempo
+      type: tempo
+      access: proxy
+      url: http://tempo.monitoring.svc.cluster.local:3200
+      jsonData:
+        tracesToLogsV2: {datasourceUid: Loki, spanStartTimeShift: -1m, spanEndTimeShift: 1m}
+    - name: CloudWatch
+      uid: CloudWatch
+      type: cloudwatch
+      access: proxy
+      jsonData: {authType: default, defaultRegion: us-east-1}
+  nodeSelector: {workload: general}
+  rbac: {namespaced: true}
+  initChownData: {enabled: false}
+  persistence:
+    enabled: true
+    size: 10Gi
+
+prometheus:
+  prometheusSpec:
+    replicas: 2
+    retention: 15d
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    nodeSelector: {workload: general}
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources: {requests: {storage: 50Gi}}
+
+prometheusOperator:
+  nodeSelector: {workload: general}
+
+kube-state-metrics:
+  nodeSelector: {workload: general}
+  collectors:
+    - certificatesigningrequests
+    - configmaps
+    - cronjobs
+    - daemonsets
+    - deployments
+    - endpoints
+    - horizontalpodautoscalers
+    - ingresses
+    - jobs
+    - leases
+    - limitranges
+    - mutatingwebhookconfigurations
+    - namespaces
+    - networkpolicies
+    - nodes
+    - persistentvolumeclaims
+    - persistentvolumes
+    - poddisruptionbudgets
+    - pods
+    - replicasets
+    - replicationcontrollers
+    - resourcequotas
+    - services
+    - statefulsets
+    - storageclasses
+    - validatingwebhookconfigurations
+    - volumeattachments
+
+prometheus-node-exporter:
+  tolerations:
+    - {operator: Exists}

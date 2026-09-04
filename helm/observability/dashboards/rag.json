@@ -1,0 +1,22 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {"id": 1, "title": "Queries / sec", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}, "targets": [{"refId": "A", "expr": "sum by (outcome) (rate(rag_queries_total[5m]))", "legendFormat": "{{outcome}}"}]},
+    {"id": 2, "title": "End-to-end p95", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0}, "fieldConfig": {"defaults": {"unit": "s"}}, "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(rag_stage_duration_seconds_bucket{stage=\"end_to_end\"}[5m])))"}]},
+    {"id": 3, "title": "Errors / sec", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0}, "targets": [{"refId": "A", "expr": "sum by (component) (rate(rag_application_errors_total[5m]))", "legendFormat": "{{component}}"}]},
+    {"id": 4, "title": "Pipeline stage p95", "type": "timeseries", "gridPos": {"h": 9, "w": 12, "x": 0, "y": 8}, "fieldConfig": {"defaults": {"unit": "s"}}, "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(rag_stage_duration_seconds_bucket{stage=~\"retrieval|rerank|llm.generate\"}[5m])))", "legendFormat": "{{stage}}"}]},
+    {"id": 5, "title": "Unsupported questions", "type": "timeseries", "gridPos": {"h": 9, "w": 6, "x": 12, "y": 8}, "targets": [{"refId": "A", "expr": "sum(rate(rag_queries_total{outcome=\"unsupported\"}[5m]))"}]},
+    {"id": 6, "title": "Average citations", "type": "timeseries", "gridPos": {"h": 9, "w": 6, "x": 18, "y": 8}, "targets": [{"refId": "A", "expr": "sum(rate(rag_citations_per_answer_sum[5m])) / clamp_min(sum(rate(rag_citations_per_answer_count[5m])), 1e-9)"}]},
+    {"id": 7, "title": "Generated tokens / sec", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 17}, "targets": [{"refId": "A", "expr": "sum by (model) (rate(rag_generated_tokens_total[5m]))", "legendFormat": "{{model}}"}]},
+    {"id": 8, "title": "Recent RAG traces", "type": "traces", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 17}, "datasource": {"type": "tempo", "uid": "Tempo"}, "targets": [{"refId": "A", "queryType": "traceql", "query": "{ name = \"rag.request\" }"}]}
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["rag-platform", "rag"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "RAG Platform / RAG",
+  "uid": "rag-platform-rag",
+  "version": 1
+}

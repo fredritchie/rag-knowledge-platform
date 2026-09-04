@@ -63,6 +63,11 @@ jobs:
           helm repo add kedacore https://kedacore.github.io/charts
           helm repo add kyverno https://kyverno.github.io/kyverno/
           helm repo add nvdp https://nvidia.github.io/k8s-device-plugin
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm repo add grafana-community https://grafana-community.github.io/helm-charts
+          helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+          helm repo add gpu-helm-charts https://nvidia.github.io/dcgm-exporter/helm-charts
           helm repo update
           helm template cilium cilium/cilium --version "$CILIUM_VERSION" -n kube-system -f helm/platform/cilium-values.yaml > platform-rendered.yaml
           helm template aws-load-balancer-controller eks/aws-load-balancer-controller --version "$AWS_LOAD_BALANCER_CONTROLLER_VERSION" -n kube-system -f helm/platform/aws-load-balancer-controller-values.yaml >> platform-rendered.yaml
@@ -71,7 +76,17 @@ jobs:
           helm template keda kedacore/keda --version "$KEDA_VERSION" -n keda -f helm/platform/keda-values.yaml >> platform-rendered.yaml
           helm template kyverno kyverno/kyverno --version "$KYVERNO_VERSION" -n kyverno -f helm/platform/kyverno-values.yaml >> platform-rendered.yaml
           helm template nvidia-device-plugin nvdp/nvidia-device-plugin --version "$NVIDIA_DEVICE_PLUGIN_VERSION" -n kube-system -f helm/platform/nvidia-device-plugin-values.yaml >> platform-rendered.yaml
+          helm template kube-prometheus-stack prometheus-community/kube-prometheus-stack --version "$KUBE_PROMETHEUS_STACK_VERSION" -n monitoring -f helm/platform/kube-prometheus-stack-values.yaml > observability-rendered.yaml
+          helm template loki grafana-community/loki --version "$LOKI_VERSION" -n monitoring -f helm/platform/loki-values.yaml >> observability-rendered.yaml
+          helm template tempo grafana-community/tempo --version "$TEMPO_VERSION" -n monitoring -f helm/platform/tempo-values.yaml >> observability-rendered.yaml
+          helm template opentelemetry-collector open-telemetry/opentelemetry-collector --version "$OPENTELEMETRY_COLLECTOR_VERSION" -n monitoring -f helm/platform/opentelemetry-collector-values.yaml >> observability-rendered.yaml
+          helm template alloy grafana/alloy --version "$ALLOY_VERSION" -n monitoring -f helm/platform/alloy-values.yaml >> observability-rendered.yaml
+          helm template dcgm-exporter gpu-helm-charts/dcgm-exporter --version "$DCGM_EXPORTER_VERSION" -n monitoring -f helm/platform/dcgm-exporter-values.yaml >> observability-rendered.yaml
+          helm lint helm/observability
+          helm template rag-observability helm/observability -n monitoring >> observability-rendered.yaml
           kubeconform -strict -summary -ignore-missing-schemas platform-rendered.yaml
+          kubeconform -strict -summary -ignore-missing-schemas observability-rendered.yaml
+          scripts/verify_observability_findings.sh observability-rendered.yaml
 
   codeql:
     runs-on: ubuntu-latest

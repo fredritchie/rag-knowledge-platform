@@ -19,6 +19,12 @@ from rag_platform.application.db.models import (
 )
 from rag_platform.application.db.session import Database
 from rag_platform.config import Settings, load_settings
+from rag_platform.observability import (
+    INGESTION_DOCUMENTS,
+    configure_observability,
+    service_var,
+    set_tenant_id,
+)
 
 logger = logging.getLogger("rag_platform.ingestion_worker")
 
@@ -110,6 +116,7 @@ class IngestionWorker:
             job = await session.get(IngestionJob, job_id)
             if job is None or job.status != "RUNNING":
                 return
+            set_tenant_id(job.tenant_id)
             document = await session.get(Document, job.document_id)
             version = await session.get(DocumentVersion, job.document_version_id)
             if document is None or version is None:
@@ -142,7 +149,9 @@ class IngestionWorker:
                     )
                 )
                 await session.commit()
+                INGESTION_DOCUMENTS.labels(service_var.get(), "succeeded").inc()
             except Exception as exc:
+                INGESTION_DOCUMENTS.labels(service_var.get(), "failed").inc()
                 await self._fail(session, job, "PROCESSING_FAILED", str(exc))
 
     async def _activate_version(
@@ -218,6 +227,7 @@ async def _main() -> None:
     from rag_platform.workers.s3_events import S3PipelineProcessor
 
     settings = load_settings()
+    configure_observability(settings.observability, "ingestion-worker")
     database = Database(settings.database)
     try:
         await IngestionWorker(settings, database, S3PipelineProcessor(settings)).run_forever()
@@ -226,5 +236,4 @@ async def _main() -> None:
 
 
 def run() -> None:
-    logging.basicConfig(level=logging.INFO)
     asyncio.run(_main())

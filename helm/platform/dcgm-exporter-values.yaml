@@ -1,0 +1,22 @@
+serviceMonitor:
+  enabled: true
+nodeSelector: {workload: gpu}
+tolerations:
+  - {key: nvidia.com/gpu, operator: Equal, value: "true", effect: NoSchedule}
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: 200m, memory: 512Mi}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  seccompProfile: {type: RuntimeDefault}
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    add: []
+    drop: [ALL]

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: rag-observability
+description: RAG platform Grafana dashboards and Prometheus alert rules
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

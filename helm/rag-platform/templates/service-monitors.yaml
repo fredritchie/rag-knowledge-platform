@@ -1,0 +1,17 @@
+{{- if and .Values.observability.enabled .Values.observability.serviceMonitor.enabled }}
+{{- range $component := list "api" "ingestion-worker" "drive-sync" }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "rag-platform.fullname" $ }}-{{ $component }}
+  labels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: {{ $component }}}
+spec:
+  namespaceSelector:
+    matchNames: [{{ $.Release.Namespace }}]
+  selector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: {{ $component }}}
+  endpoints:
+    - {port: metrics, interval: {{ $.Values.observability.serviceMonitor.interval }}}
+{{- end }}
+{{- end }}
