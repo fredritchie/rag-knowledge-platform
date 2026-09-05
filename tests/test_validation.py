@@ -80,6 +80,7 @@ def test_suspicious_replacement_character_ratio_is_rejected() -> None:
     )
     assert IssueCode.UNSUPPORTED_ENCODING in _codes(issues)
 
+
 @pytest.mark.slow
 def test_500_page_pdf_can_be_classified_as_excessive(tmp_path: Path) -> None:
     path = make_text_pdf(tmp_path / "500-pages.pdf", pages=500, text="page")

@@ -46,7 +46,9 @@ The source architecture names retrieval and generation as separate logical servi
 1. Apply Phase 13 and confirm managed node groups are `ACTIVE` and desired nodes are `Ready`.
 2. Set `EKS_CLUSTER_NAME`, `AWS_REGION`, and `VPC_ID`, then run `make kubernetes-platform-install` from a network path that reaches the private EKS endpoint.
 3. Wait for all controllers and add-ons to become healthy.
-4. Copy the environment values example, fill Terraform outputs and immutable image digests, and deploy into `rag-platform`.
+4. Copy the environment values example, fill Terraform outputs and the external Qdrant digest,
+   then combine it with the reviewed `gitops/environments/dev/images.yaml` project-image overlay
+   when deploying into `rag-platform`.
 5. Enable the Kyverno image policy after signed images exist and its repository identity is correct.
 6. Execute the functional, resilience, policy, and restore checks below.
 

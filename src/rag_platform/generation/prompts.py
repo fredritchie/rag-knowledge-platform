@@ -42,9 +42,11 @@ def format_context(results: list[SearchResult], max_tokens: int) -> tuple[str, l
             f"page: {result.page}\n"
             f"chunk_id: {result.chunk_id}"
         )
-        section = f"{source_label}\n" + isolated_document_context(
-            text=result.text, source_label=f"SOURCE {index}"
-        ) + "\n"
+        section = (
+            f"{source_label}\n"
+            + isolated_document_context(text=result.text, source_label=f"SOURCE {index}")
+            + "\n"
+        )
         if used + len(section) > max_chars:
             remaining = max_chars - used
             if remaining > 200:

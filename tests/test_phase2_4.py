@@ -16,6 +16,8 @@ from rag_platform.retrieval.service import RetrievalService
 from rag_platform.retrieval.vector_store import InMemoryVectorStore
 from rag_platform.storage.sqlite import SQLiteCatalog
 
+pytestmark = pytest.mark.integration
+
 
 class FakeLLM:
     model_version = "fake-v1"

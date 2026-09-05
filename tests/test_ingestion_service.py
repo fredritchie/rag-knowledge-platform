@@ -11,6 +11,8 @@ from rag_platform.ingestion.service import (
 )
 from tests.conftest import make_image_only_pdf
 
+pytestmark = pytest.mark.integration
+
 
 def test_ingest_persists_document_and_chunks(text_pdf: Path, tmp_path: Path) -> None:
     service = IngestionService(Settings(data_dir=tmp_path / "catalog"))

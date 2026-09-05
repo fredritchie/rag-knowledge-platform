@@ -20,7 +20,9 @@ class S3Storage:
             # A global S3 endpoint redirects POST requests for non-us-east-1 buckets.
             # Browsers cannot follow that redirect for a cross-origin multipart upload,
             # so generate presigned forms against the bucket's regional endpoint.
-            endpoint_url = self.config.endpoint_url or f"https://s3.{self.config.region}.amazonaws.com"
+            endpoint_url = (
+                self.config.endpoint_url or f"https://s3.{self.config.region}.amazonaws.com"
+            )
             self._client = boto3.client(
                 "s3",
                 region_name=self.config.region,

@@ -59,6 +59,7 @@ where = ["src"]
 testpaths = ["tests"]
 addopts = "-ra"
 markers = [
+  "integration: tests that cross application component boundaries",
   "slow: tests that intentionally create large documents",
 ]
 

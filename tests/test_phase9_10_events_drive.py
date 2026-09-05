@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
@@ -28,6 +29,8 @@ from rag_platform.config import Settings
 from rag_platform.workers.ingestion import ProcessingResult
 from rag_platform.workers.s3_events import QueueMessage, S3EventWorker, StorageEvent
 from rag_platform.workers.sync import DriveSyncService, _classify_change
+
+pytestmark = pytest.mark.integration
 
 
 class FakeStorage:

@@ -28,6 +28,8 @@ from rag_platform.application.db.session import Database
 from rag_platform.config import Settings
 from rag_platform.workers.ingestion import IngestionWorker, ProcessingResult
 
+pytestmark = pytest.mark.integration
+
 
 class FakeStorage:
     def create_upload(self, storage_key: str, content_type: str):

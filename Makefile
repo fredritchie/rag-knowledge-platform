@@ -1,4 +1,4 @@
-.PHONY: install install-ml migrate api ingestion-worker event-worker sync-worker frontend-install frontend-dev test test-all lint format check corpus services-build services-up services-ps services-logs services-down security-scan helm-check kubernetes-platform-install clean
+.PHONY: install install-ml migrate api ingestion-worker event-worker sync-worker frontend-install frontend-dev test test-all test-unit test-integration quality-gate lint format check corpus services-build services-up services-ps services-logs services-down security-scan helm-check kubernetes-platform-install clean
 
 install:
 	python3 -m pip install -e '.[dev]'
@@ -32,6 +32,15 @@ test:
 
 test-all:
 	pytest
+
+test-unit:
+	pytest -m 'not integration and not slow'
+
+test-integration:
+	pytest -m integration
+
+quality-gate:
+	python scripts/run_ci_rag_evaluation.py --output-dir evaluation/reports/ci
 
 lint:
 	ruff check src tests

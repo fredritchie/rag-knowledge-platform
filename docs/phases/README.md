@@ -17,6 +17,7 @@ retrieval, generation, and quality-engineering phases.
 - [Phase 13 — AWS Infrastructure with Terraform](phase-13-aws-infrastructure/README.md)
 - [Phase 14 — Kubernetes](phase-14-kubernetes/README.md)
 - [Phase 15 — Observability](phase-15-observability/README.md)
+- [Phase 16 — CI/CD and AI Quality Gates](phase-16-cicd-ai-quality-gates/README.md)
 
 Each guide describes the current source code rather than an aspirational architecture. When a
 guide calls out a limitation, it is intentional: operators and evaluators should not mistake a

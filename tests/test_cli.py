@@ -1,10 +1,12 @@
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from rag_platform.cli import app
 
 runner = CliRunner()
+pytestmark = pytest.mark.integration
 
 
 def test_cli_ingest_inspect_and_chunks(text_pdf: Path, tmp_path: Path) -> None:
