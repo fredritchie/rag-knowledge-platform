@@ -83,6 +83,11 @@ variable "deletion_protection" {
   type    = bool
   default = true
 }
+variable "drive_secret_arns" {
+  type        = set(string)
+  default     = []
+  description = "Approved Google Drive OAuth secret ARNs for this environment."
+}
 variable "tags" {
   type    = map(string)
   default = {}

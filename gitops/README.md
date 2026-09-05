@@ -5,7 +5,10 @@
 opening a pull request that updates this file. Merging the GitOps pull request is the explicit
 promotion approval; this repository does not deploy from a pull-request workflow.
 
-Deploy with this overlay plus the ignored environment values file:
+Deploy with this overlay plus the ignored environment values file. Production deployments should
+use the protected `application-environment-deployment` workflow described in
+`docs/runbooks/application-deployment.md`; the command below is for a VPC-connected break-glass
+operator session:
 
 ```bash
 helm upgrade --install rag-platform helm/rag-platform \

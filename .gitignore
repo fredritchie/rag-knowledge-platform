@@ -21,6 +21,7 @@ node_modules/
 *.tfstate.*
 backend.hcl
 terraform.tfvars
+helm/rag-platform/values-*.yaml
 *.tfplan
 plan.txt
 plan-command.txt

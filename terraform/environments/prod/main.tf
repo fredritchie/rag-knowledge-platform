@@ -34,5 +34,6 @@ module "platform" {
   aurora_instance_class      = var.aurora_instance_class
   aurora_instance_count      = var.aurora_instance_count
   deletion_protection        = var.deletion_protection
+  drive_secret_arns          = var.drive_secret_arns
   tags                       = local.tags
 }

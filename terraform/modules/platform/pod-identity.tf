@@ -41,6 +41,13 @@ data "aws_iam_policy_document" "workers" {
       module.queues.kms_key_arn,
     ]
   }
+  dynamic "statement" {
+    for_each = length(var.drive_secret_arns) == 0 ? [] : [1]
+    content {
+      actions   = ["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"]
+      resources = var.drive_secret_arns
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "workers" {
@@ -54,6 +61,48 @@ resource "aws_eks_pod_identity_association" "workers" {
   namespace       = "rag-platform"
   service_account = "rag-platform-workers"
   role_arn        = aws_iam_role.workers.arn
+}
+
+resource "aws_iam_role" "application" {
+  name               = "${local.name}-application"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json
+  tags               = local.tags
+}
+
+data "aws_iam_policy_document" "application" {
+  statement {
+    actions   = ["s3:GetBucketLocation", "s3:ListBucket"]
+    resources = [module.documents.bucket_arn]
+  }
+  statement {
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    resources = ["${module.documents.bucket_arn}/*"]
+  }
+  statement {
+    actions   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey"]
+    resources = [module.documents.kms_key_arn]
+  }
+  statement {
+    actions = [
+      "cognito-idp:AdminCreateUser",
+      "cognito-idp:AdminResetUserPassword",
+      "cognito-idp:AdminGetUser",
+    ]
+    resources = ["arn:aws:cognito-idp:${var.aws_region}:${data.aws_caller_identity.current.account_id}:userpool/${module.iam.cognito_user_pool_id}"]
+  }
+}
+
+resource "aws_iam_role_policy" "application" {
+  name   = "application-data-plane"
+  role   = aws_iam_role.application.id
+  policy = data.aws_iam_policy_document.application.json
+}
+
+resource "aws_eks_pod_identity_association" "application" {
+  cluster_name    = module.kubernetes.cluster_name
+  namespace       = "rag-platform"
+  service_account = "rag-platform"
+  role_arn        = aws_iam_role.application.arn
 }
 
 resource "aws_iam_role" "external_secrets" {

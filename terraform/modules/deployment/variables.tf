@@ -1,0 +1,35 @@
+variable "name" { type = string }
+variable "aws_region" { type = string }
+variable "github_repository" { type = string }
+variable "github_oidc_subject_prefix" { type = string }
+variable "github_oidc_provider_arn" { type = string }
+variable "github_environment" { type = string }
+variable "vpc_id" { type = string }
+variable "vpc_cidr" { type = string }
+variable "private_subnet_ids" { type = list(string) }
+variable "eks_security_group_id" { type = string }
+variable "eks_cluster_name" { type = string }
+variable "eks_cluster_arn" { type = string }
+variable "application_url" { type = string }
+variable "document_bucket" { type = string }
+variable "document_kms_key_arn" { type = string }
+variable "telemetry_bucket" { type = string }
+variable "ingestion_queue_url" { type = string }
+variable "aurora_endpoint" { type = string }
+variable "aurora_secret_arn" { type = string }
+variable "runtime_secret_arn" { type = string }
+variable "grafana_admin_secret_arn" { type = string }
+variable "runtime_kms_key_arn" { type = string }
+variable "cognito_user_pool_id" { type = string }
+variable "cognito_client_id" { type = string }
+variable "cognito_authorize_url" { type = string }
+variable "cognito_token_url" { type = string }
+variable "cognito_logout_url" { type = string }
+variable "sns_topic_arn" { type = string }
+variable "alb_target_group_arn" { type = string }
+variable "public_subnet_cidrs" { type = list(string) }
+variable "private_subnet_cidrs" { type = list(string) }
+variable "tags" {
+  type    = map(string)
+  default = {}
+}

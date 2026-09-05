@@ -36,6 +36,11 @@ variable "gpu_desired_size" { type = number }
 variable "aurora_instance_class" { type = string }
 variable "aurora_instance_count" { type = number }
 variable "deletion_protection" { type = bool }
+variable "drive_secret_arns" {
+  type        = set(string)
+  default     = []
+  description = "Secrets Manager ARNs containing Google Drive OAuth credentials readable by sync workers."
+}
 variable "tags" {
   type    = map(string)
   default = {}
