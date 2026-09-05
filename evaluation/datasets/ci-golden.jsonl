@@ -1,0 +1,3 @@
+{"question":"What trust does zero trust remove?","expected_document":"NIST-SP-800-207.pdf","expected_pages":[4],"expected_answer":"Zero trust removes implicit trust based on network location.","should_answer":true}
+{"question":"What does retrieval augmented generation combine?","expected_document":"RAG-foundations.pdf","expected_pages":[1],"expected_answer":"Retrieval augmented generation combines retrieved evidence with language generation.","should_answer":true}
+{"question":"How do Kubernetes tolerations affect taints?","expected_document":"Kubernetes-scheduling.pdf","expected_pages":[2],"expected_answer":"Tolerations allow matching pods to schedule onto tainted nodes.","should_answer":true}

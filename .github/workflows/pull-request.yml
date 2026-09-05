@@ -1,0 +1,120 @@
+name: pull-request-verification
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pull-request-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - uses: actions/setup-node@v4
+        with: {node-version: "24", cache: npm, cache-dependency-path: apps/web/package-lock.json}
+      - uses: hashicorp/setup-terraform@v3
+        with: {terraform_version: 1.16.1, terraform_wrapper: false}
+      - uses: terraform-linters/setup-tflint@v5
+        with: {tflint_version: v0.58.1}
+      - uses: azure/setup-helm@v4
+        with: {version: v3.18.4}
+      - uses: yokawasa/action-setup-kube-tools@v0.12.0
+        with: {kubeconform: 0.8.0}
+      - uses: aquasecurity/setup-trivy@v0.3.1
+        with: {version: v0.74.0}
+      - run: python -m pip install '.[dev]' bandit==1.8.6 pip-audit==2.9.0
+      - run: npm ci --ignore-scripts
+        working-directory: apps/web
+
+      - name: Format
+        run: |
+          ruff format --check src tests scripts/*.py
+          terraform fmt -check -recursive terraform
+      - name: Lint
+        run: |
+          ruff check src tests scripts/*.py
+          npm --prefix apps/web run lint
+      - name: Unit tests
+        run: pytest -m 'not integration and not slow' --basetemp /tmp/rag-unit-tests
+      - name: Integration tests
+        run: pytest -m integration --basetemp /tmp/rag-integration-tests
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Security scans
+        run: |
+          bandit -q -r src scripts
+          pip-audit
+          npm --prefix apps/web audit --audit-level=high
+          trivy fs --scanners secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
+
+      - name: Small RAG evaluation
+        run: python scripts/run_ci_rag_evaluation.py --output-dir evaluation/reports/ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rag-quality-reports
+          path: evaluation/reports/ci/*.json
+          retention-days: 30
+
+      - name: Docker build
+        run: |
+          docker build --target runtime --build-arg VCS_REF="${GITHUB_SHA}" -f docker/python.Dockerfile -t local/rag-python:${GITHUB_SHA} .
+          for image in api ingestion-worker drive-sync; do docker tag "local/rag-python:${GITHUB_SHA}" "local/${image}:${GITHUB_SHA}"; done
+          docker build --target runtime --build-arg VCS_REF="${GITHUB_SHA}" -f docker/frontend.Dockerfile -t "local/frontend:${GITHUB_SHA}" .
+          docker build --target runtime --build-arg VCS_REF="${GITHUB_SHA}" -f docker/ollama.Dockerfile -t "local/ollama-runtime:${GITHUB_SHA}" .
+      - name: Image scan
+        env:
+          OLLAMA_EXCEPTION_EXPIRY: "2026-10-02"
+        run: |
+          for image in api ingestion-worker drive-sync frontend; do
+            trivy image --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 "local/${image}:${GITHUB_SHA}"
+          done
+          if [[ "$(date -u +%F)" > "${OLLAMA_EXCEPTION_EXPIRY}" ]]; then
+            echo "Ollama vulnerability exception expired on ${OLLAMA_EXCEPTION_EXPIRY}" >&2
+            exit 1
+          fi
+          trivy image --ignore-unfixed --ignorefile security/trivy/ollama-runtime-v0.33.2.trivyignore \
+            --severity HIGH,CRITICAL --exit-code 1 "local/ollama-runtime:${GITHUB_SHA}"
+
+      - name: Terraform validate
+        run: |
+          for root in terraform/bootstrap terraform/environments/dev terraform/environments/staging terraform/environments/prod; do
+            terraform -chdir="${root}" init -backend=false -input=false
+            terraform -chdir="${root}" validate
+          done
+          tflint --recursive
+      - uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: terraform,dockerfile
+
+      - name: Helm lint
+        env:
+          DIGEST: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        run: |
+          args=()
+          for image in frontend api ingestionWorker driveSync ollamaRuntime qdrant; do args+=(--set-string "images.${image}.digest=${DIGEST}"); done
+          helm lint helm/rag-platform "${args[@]}"
+          helm lint helm/observability
+      - name: Kubeconform
+        env:
+          DIGEST: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        run: |
+          args=()
+          for image in frontend api ingestionWorker driveSync ollamaRuntime qdrant; do args+=(--set-string "images.${image}.digest=${DIGEST}"); done
+          helm template rag-platform helm/rag-platform --namespace rag-platform "${args[@]}" > rendered.yaml
+          scripts/render_kubernetes_platform.sh rendered-platform
+          kubeconform -strict -summary -ignore-missing-schemas \
+            rendered.yaml rendered-platform/platform.yaml rendered-platform/observability.yaml
+          trivy config --exit-code 1 --severity HIGH,CRITICAL rendered.yaml
+          scripts/verify_platform_findings.sh rendered-platform/platform.yaml
+          scripts/verify_observability_findings.sh rendered-platform/observability.yaml

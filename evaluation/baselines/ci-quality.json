@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "dataset": "evaluation/datasets/ci-golden.jsonl",
+  "minimum_cases": 3,
+  "metrics": {
+    "hit_at_5": {"report": "retrieval", "baseline": 1.0, "tolerance": 0.0},
+    "groundedness": {"report": "rag", "baseline": 0.8, "tolerance": 0.01},
+    "citation_correctness": {"report": "rag", "baseline": 1.0, "tolerance": 0.0}
+  }
+}

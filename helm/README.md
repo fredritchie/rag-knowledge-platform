@@ -16,4 +16,6 @@ tag-only deployments fail rendering.
 Copy `values-dev.yaml.example` and replace every ARN, endpoint, and CIDR. Empty network defaults
 deliberately fail closed. Install into the `rag-platform` namespace so Terraform Pod Identity
 associations match. Enable `admissionPolicy.enabled` only after Kyverno is healthy, signed images
-exist, and the repository identity has been replaced.
+exist, and the repository identity has been replaced. After Phase 16 promotion, pass
+`gitops/environments/dev/images.yaml` as a second values file to supply the reviewed project-image
+digests.
