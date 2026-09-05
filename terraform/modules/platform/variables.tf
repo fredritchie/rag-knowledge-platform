@@ -14,6 +14,11 @@ variable "hosted_zone_id" {
   type     = string
   nullable = true
 }
+variable "certificate_arn" {
+  type     = string
+  default  = null
+  nullable = true
+}
 variable "github_repository" { type = string }
 variable "github_oidc_subject_prefix" {
   type     = string

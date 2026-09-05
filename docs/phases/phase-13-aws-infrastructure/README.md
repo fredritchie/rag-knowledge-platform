@@ -12,11 +12,13 @@ Nightly drift detection includes only applied environments. Dev is enabled now; 
 production must be added to the workflow matrix only after their GitHub environment inputs are
 configured and their first reviewed apply has completed.
 
-Dev is intentionally domainless: `enable_https = false` exposes the WAF-associated ALB listener on
-HTTP and reports the generated ALB hostname. This is suitable only for infrastructure smoke tests.
-Staging and production must use HTTPS with a DNS zone capable of creating ACM validation CNAMEs and
-an alias or CNAME to the ALB. DuckDNS supports A/AAAA and TXT updates but not those required CNAME or
-alias records, so it cannot satisfy the production ACM/ALB exit criterion by itself.
+Dev uses `fred-rag-dev.duckdns.org`; staging uses `fred-rag-stage.duckdns.org`; and production uses
+`fred-rag.duckdns.org`. DuckDNS certificate and routing preparation is documented in
+[`docs/runbooks/duckdns.md`](../../runbooks/duckdns.md). `enable_https = false` remains an emergency
+domainless fallback that creates a CloudFront-managed HTTPS endpoint in front of the WAF-associated
+ALB. Staging and production must use HTTPS. DuckDNS supports A/AAAA and TXT updates but not a CNAME
+or Route53-style alias to the ALB, so a durable static-address ingress layer or a more capable DNS
+provider is still required before DuckDNS can satisfy the production availability exit criterion.
 
 ## Teardown and cost shutdown
 

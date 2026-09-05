@@ -13,6 +13,12 @@ variable "hosted_zone_id" {
   default  = null
   nullable = true
 }
+variable "certificate_arn" {
+  type        = string
+  default     = null
+  nullable    = true
+  description = "Existing ACM certificate ARN for externally managed DNS providers such as DuckDNS."
+}
 variable "vpc_id" { type = string }
 variable "public_subnet_ids" { type = list(string) }
 variable "security_group_id" { type = string }

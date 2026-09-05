@@ -1,5 +1,10 @@
 data "aws_caller_identity" "current" {}
 
+data "aws_ec2_managed_prefix_list" "cloudfront_origin" {
+  count = var.enable_https ? 0 : 1
+  name  = "com.amazonaws.global.cloudfront.origin-facing"
+}
+
 locals {
   name = "rag-platform-${var.environment}"
   tags = merge(var.tags, {
@@ -14,15 +19,16 @@ locals {
 }
 
 module "vpc" {
-  source               = "../vpc"
-  name                 = local.name
-  vpc_cidr             = var.vpc_cidr
-  availability_zones   = var.availability_zones
-  public_subnet_cidrs  = var.public_subnet_cidrs
-  private_subnet_cidrs = var.private_subnet_cidrs
-  single_nat_gateway   = var.single_nat_gateway
-  alb_ingress_port     = var.enable_https ? 443 : 80
-  tags                 = local.tags
+  source                     = "../vpc"
+  name                       = local.name
+  vpc_cidr                   = var.vpc_cidr
+  availability_zones         = var.availability_zones
+  public_subnet_cidrs        = var.public_subnet_cidrs
+  private_subnet_cidrs       = var.private_subnet_cidrs
+  single_nat_gateway         = var.single_nat_gateway
+  alb_ingress_port           = var.enable_https ? 443 : 80
+  alb_ingress_prefix_list_id = var.enable_https ? null : data.aws_ec2_managed_prefix_list.cloudfront_origin[0].id
+  tags                       = local.tags
 }
 
 module "documents" {
@@ -83,23 +89,60 @@ module "iam" {
   tags                       = local.tags
 }
 
+moved {
+  from = module.deployment.aws_security_group.codebuild
+  to   = aws_security_group.deployment
+}
+
+resource "aws_security_group" "deployment" {
+  #checkov:skip=CKV2_AWS_5: Attached to both the EKS control plane and CodeBuild VPC interfaces.
+  name_prefix = "${local.name}-deployment-"
+  description = "Shared security group for private Kubernetes deployments"
+  vpc_id      = module.vpc.vpc_id
+  ingress {
+    description = "Kubernetes API between members of the deployment security group"
+    protocol    = "tcp"
+    from_port   = 443
+    to_port     = 443
+    self        = true
+  }
+  egress {
+    description = "Private VPC resources and EKS endpoint"
+    protocol    = "-1"
+    from_port   = 0
+    to_port     = 0
+    cidr_blocks = [var.vpc_cidr]
+  }
+  #trivy:ignore:AVD-AWS-0104 The private build needs HTTPS through NAT for GitHub and pinned Helm repositories.
+  egress {
+    description = "HTTPS through NAT for source and chart downloads"
+    protocol    = "tcp"
+    from_port   = 443
+    to_port     = 443
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = merge(local.tags, { Name = "${local.name}-deployment" })
+  lifecycle { create_before_destroy = true }
+}
+
 module "kubernetes" {
-  source                   = "../kubernetes"
-  name                     = local.name
-  kubernetes_version       = var.kubernetes_version
-  private_subnet_ids       = module.vpc.private_subnet_ids
-  security_group_id        = module.vpc.kubernetes_security_group_id
-  cluster_role_arn         = module.iam.eks_cluster_role_arn
-  node_role_arn            = module.iam.eks_node_role_arn
-  general_instance_types   = var.general_instance_types
-  qdrant_instance_types    = var.qdrant_instance_types
-  ingestion_instance_types = var.ingestion_instance_types
-  gpu_instance_types       = var.gpu_instance_types
-  general_desired_size     = var.general_desired_size
-  qdrant_desired_size      = var.qdrant_desired_size
-  ingestion_desired_size   = var.ingestion_desired_size
-  gpu_desired_size         = var.gpu_desired_size
-  tags                     = local.tags
+  source                        = "../kubernetes"
+  name                          = local.name
+  kubernetes_version            = var.kubernetes_version
+  private_subnet_ids            = module.vpc.private_subnet_ids
+  security_group_id             = module.vpc.kubernetes_security_group_id
+  additional_security_group_ids = [aws_security_group.deployment.id]
+  cluster_role_arn              = module.iam.eks_cluster_role_arn
+  node_role_arn                 = module.iam.eks_node_role_arn
+  general_instance_types        = var.general_instance_types
+  qdrant_instance_types         = var.qdrant_instance_types
+  ingestion_instance_types      = var.ingestion_instance_types
+  gpu_instance_types            = var.gpu_instance_types
+  general_desired_size          = var.general_desired_size
+  qdrant_desired_size           = var.qdrant_desired_size
+  ingestion_desired_size        = var.ingestion_desired_size
+  gpu_desired_size              = var.gpu_desired_size
+  tags                          = local.tags
 }
 
 moved {
@@ -155,6 +198,7 @@ module "edge" {
   enable_https          = var.enable_https
   domain_name           = var.domain_name
   hosted_zone_id        = var.hosted_zone_id
+  certificate_arn       = var.certificate_arn
   vpc_id                = module.vpc.vpc_id
   public_subnet_ids     = module.vpc.public_subnet_ids
   security_group_id     = module.vpc.alb_security_group_id
@@ -183,9 +227,8 @@ module "deployment" {
   github_oidc_provider_arn   = var.github_oidc_provider_arn
   github_environment         = var.environment
   vpc_id                     = module.vpc.vpc_id
-  vpc_cidr                   = var.vpc_cidr
   private_subnet_ids         = module.vpc.private_subnet_ids
-  eks_security_group_id      = module.vpc.kubernetes_security_group_id
+  security_group_id          = aws_security_group.deployment.id
   eks_cluster_name           = module.kubernetes.cluster_name
   eks_cluster_arn            = module.kubernetes.cluster_arn
   application_url            = module.edge.application_url

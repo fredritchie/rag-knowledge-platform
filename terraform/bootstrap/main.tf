@@ -161,6 +161,7 @@ data "aws_iam_policy_document" "terraform_deploy_iam" {
       "iam:TagRole",
       "iam:UntagRole",
       "iam:UpdateAssumeRolePolicy",
+      "iam:ListInstanceProfilesForRole",
     ]
     resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.terraform_managed_name_prefix}-*"]
   }
