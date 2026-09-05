@@ -23,12 +23,14 @@ printf '%s\n' \
   'KSV-0056 3' \
   'KSV-0109 1' \
   'KSV-0114 4' \
-  'KSV-0118 18' \
+  'KSV-0118 19' \
   'KSV-0119 1' \
   'KSV-0120 4' \
   'KSV-0121 1' >"${expected_file}"
 
 if ! diff -u "${expected_file}" "${actual_file}"; then
+  jq -r '.Results[] | .Misconfigurations[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL") | "\(.ID): \(.Message)"' \
+    "${report_file}" | sort >&2
   echo "Platform manifests contain an unexpected high/critical finding set" >&2
   exit 1
 fi
