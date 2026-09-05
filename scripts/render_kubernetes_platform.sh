@@ -26,8 +26,10 @@ helm repo update
 platform_output="${OUTPUT_DIR}/platform.yaml"
 observability_output="${OUTPUT_DIR}/observability.yaml"
 
+helm template rag-platform-storage "${ROOT_DIR}/helm/storage" -n kube-system \
+  > "${platform_output}"
 helm template cilium cilium/cilium --version "${CILIUM_VERSION}" -n kube-system \
-  -f "${PLATFORM_DIR}/cilium-values.yaml" > "${platform_output}"
+  -f "${PLATFORM_DIR}/cilium-values.yaml" >> "${platform_output}"
 helm template aws-load-balancer-controller eks/aws-load-balancer-controller \
   --version "${AWS_LOAD_BALANCER_CONTROLLER_VERSION}" -n kube-system \
   -f "${PLATFORM_DIR}/aws-load-balancer-controller-values.yaml" >> "${platform_output}"
