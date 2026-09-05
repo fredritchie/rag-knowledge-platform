@@ -79,6 +79,9 @@ resource "aws_cloudfront_distribution" "domainless_tls" {
   #checkov:skip=CKV_AWS_305: The dynamic Next.js origin routes / directly and has no static default object.
   #checkov:skip=CKV_AWS_310: The origin is a three-AZ ALB, so CloudFront origin-group failover would duplicate the same endpoint.
   #checkov:skip=CKV_AWS_374: Domainless dev intentionally remains globally reachable for functional testing; production policy is configured separately.
+  #checkov:skip=CKV2_AWS_42: The fallback intentionally uses CloudFront's managed certificate because no custom domain exists.
+  #checkov:skip=CKV2_AWS_47: The only origin is protected by the regional WAF and its AWS managed known-bad-inputs rule group.
+  #checkov:skip=CKV2_AWS_32: AWS managed SecurityHeadersPolicy is attached by ID; Checkov 3.3.16 only graphs Terraform-managed policy resources.
   count               = var.enable_https ? 0 : 1
   enabled             = true
   comment             = "Managed TLS endpoint for ${var.name}"
@@ -99,13 +102,14 @@ resource "aws_cloudfront_distribution" "domainless_tls" {
   }
 
   default_cache_behavior {
-    target_origin_id         = "alb-${var.name}"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods           = ["GET", "HEAD"]
-    compress                 = true
-    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
-    origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
+    target_origin_id           = "alb-${var.name}"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    origin_request_policy_id   = "216adef6-5c7f-47e4-b989-5492eafa07d3"
+    response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03"
   }
 
   restrictions {
