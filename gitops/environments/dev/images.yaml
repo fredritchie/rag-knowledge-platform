@@ -1,18 +1,16 @@
-# Updated only by the post-merge release workflow. Environment-specific secrets and
-# network values remain in an untracked values file and are never written here.
 images:
   frontend:
-    repository: 000000000000.dkr.ecr.us-east-1.amazonaws.com/rag/frontend
-    digest: ""
+    repository: 008971653023.dkr.ecr.ap-south-1.amazonaws.com/rag/frontend
+    digest: sha256:f21645b253ba8ffeec7169c954f5ad9bbf1828b1b7337eed17a6d2c837e5dffa
   api:
-    repository: 000000000000.dkr.ecr.us-east-1.amazonaws.com/rag/api
-    digest: ""
+    repository: 008971653023.dkr.ecr.ap-south-1.amazonaws.com/rag/api
+    digest: sha256:67b9c810736488fecac46a7ba949015b39fb8fed5780eeb8c59926414ef35386
   ingestionWorker:
-    repository: 000000000000.dkr.ecr.us-east-1.amazonaws.com/rag/ingestion-worker
-    digest: ""
+    repository: 008971653023.dkr.ecr.ap-south-1.amazonaws.com/rag/ingestion-worker
+    digest: sha256:66cd18c6757d52bfb8272ba3ec56355eb9f8b4de9f817f14a97d76d5f2e48e5e
   driveSync:
-    repository: 000000000000.dkr.ecr.us-east-1.amazonaws.com/rag/drive-sync
-    digest: ""
+    repository: 008971653023.dkr.ecr.ap-south-1.amazonaws.com/rag/drive-sync
+    digest: sha256:987e6f92f70191346f8744f584f8f19bb15120a55aa879038731e9d282e7f244
   ollamaRuntime:
-    repository: 000000000000.dkr.ecr.us-east-1.amazonaws.com/rag/ollama-runtime
-    digest: ""
+    repository: 008971653023.dkr.ecr.ap-south-1.amazonaws.com/rag/ollama-runtime
+    digest: sha256:b05e6a71367c2a467b8ecce4ee48c28d6b153f655f416c497fdbaeaf8c52af67
