@@ -2,6 +2,11 @@ variable "name" { type = string }
 variable "kubernetes_version" { type = string }
 variable "private_subnet_ids" { type = list(string) }
 variable "security_group_id" { type = string }
+variable "additional_security_group_ids" {
+  type        = list(string)
+  default     = []
+  description = "Additional security groups attached to the EKS control-plane interfaces."
+}
 variable "cluster_role_arn" { type = string }
 variable "node_role_arn" { type = string }
 variable "general_instance_types" {

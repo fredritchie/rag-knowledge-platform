@@ -30,6 +30,12 @@ variable "alb_ingress_port" {
   type    = number
   default = 443
 }
+variable "alb_ingress_prefix_list_id" {
+  type        = string
+  default     = null
+  nullable    = true
+  description = "Optional AWS-managed prefix list allowed to reach the ALB instead of the public internet."
+}
 variable "flow_log_retention_days" {
   type    = number
   default = 30

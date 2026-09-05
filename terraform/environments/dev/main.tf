@@ -16,6 +16,7 @@ module "platform" {
   enable_https               = var.enable_https
   domain_name                = var.domain_name
   hosted_zone_id             = var.hosted_zone_id
+  certificate_arn            = var.certificate_arn
   github_repository          = var.github_repository
   github_oidc_subject_prefix = var.github_oidc_subject_prefix
   github_oidc_provider_arn   = var.github_oidc_provider_arn

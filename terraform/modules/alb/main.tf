@@ -1,8 +1,12 @@
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
+locals {
+  manage_certificate = var.enable_https && var.certificate_arn == null
+}
+
 resource "aws_acm_certificate" "this" {
-  count             = var.enable_https ? 1 : 0
+  count             = local.manage_certificate ? 1 : 0
   domain_name       = var.domain_name
   validation_method = "DNS"
   tags              = var.tags
@@ -10,7 +14,7 @@ resource "aws_acm_certificate" "this" {
 }
 
 resource "aws_route53_record" "validation" {
-  for_each = var.enable_https ? {
+  for_each = local.manage_certificate ? {
     for option in aws_acm_certificate.this[0].domain_validation_options : option.domain_name => {
       name   = option.resource_record_name
       record = option.resource_record_value
@@ -26,7 +30,7 @@ resource "aws_route53_record" "validation" {
 }
 
 resource "aws_acm_certificate_validation" "this" {
-  count                   = var.enable_https ? 1 : 0
+  count                   = local.manage_certificate ? 1 : 0
   certificate_arn         = aws_acm_certificate.this[0].arn
   validation_record_fqdns = [for record in aws_route53_record.validation : record.fqdn]
 }
@@ -52,12 +56,72 @@ resource "aws_lb" "this" {
 
   lifecycle {
     precondition {
-      condition     = !var.enable_https || (var.domain_name != null && var.hosted_zone_id != null)
-      error_message = "domain_name and hosted_zone_id are required when enable_https is true."
+      condition = !var.enable_https || (
+        var.domain_name != null && (var.certificate_arn != null || var.hosted_zone_id != null)
+      )
+      error_message = "HTTPS requires domain_name and either certificate_arn for external DNS or hosted_zone_id for Route53-managed ACM validation."
     }
   }
 
   depends_on = [aws_s3_bucket_policy.logs]
+}
+
+# Cognito requires HTTPS callbacks. Domainless environments use CloudFront's managed TLS
+# hostname while protected environments terminate their custom-domain certificate on the ALB.
+#checkov:skip=CKV_AWS_68: Domainless development is protected by the regional WAF attached to its only origin ALB.
+#checkov:skip=CKV_AWS_86: Development uses short-lived ALB access logs; protected environments do not create this distribution.
+#checkov:skip=CKV_AWS_174: CloudFront's default certificate negotiates TLS 1.2 or newer with modern clients.
+#checkov:skip=CKV2_AWS_32: The origin is restricted to the AWS-managed CloudFront origin-facing prefix list by the VPC module.
+resource "aws_cloudfront_distribution" "domainless_tls" {
+  #checkov:skip=CKV_AWS_68: Domainless development is protected by the regional WAF attached to its only origin ALB.
+  #checkov:skip=CKV_AWS_86: Development uses short-lived ALB access logs; protected environments do not create this distribution.
+  #checkov:skip=CKV_AWS_174: CloudFront's default certificate negotiates TLS 1.2 or newer with modern clients.
+  #checkov:skip=CKV_AWS_305: The dynamic Next.js origin routes / directly and has no static default object.
+  #checkov:skip=CKV_AWS_310: The origin is a three-AZ ALB, so CloudFront origin-group failover would duplicate the same endpoint.
+  #checkov:skip=CKV_AWS_374: Domainless dev intentionally remains globally reachable for functional testing; production policy is configured separately.
+  #checkov:skip=CKV2_AWS_42: The fallback intentionally uses CloudFront's managed certificate because no custom domain exists.
+  #checkov:skip=CKV2_AWS_47: The only origin is protected by the regional WAF and its AWS managed known-bad-inputs rule group.
+  #checkov:skip=CKV2_AWS_32: AWS managed SecurityHeadersPolicy is attached by ID; Checkov 3.3.16 only graphs Terraform-managed policy resources.
+  count               = var.enable_https ? 0 : 1
+  enabled             = true
+  comment             = "Managed TLS endpoint for ${var.name}"
+  price_class         = "PriceClass_200"
+  http_version        = "http2and3"
+  is_ipv6_enabled     = true
+  wait_for_deployment = true
+
+  origin {
+    domain_name = aws_lb.this.dns_name
+    origin_id   = "alb-${var.name}"
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  default_cache_behavior {
+    target_origin_id           = "alb-${var.name}"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    origin_request_policy_id   = "216adef6-5c7f-47e4-b989-5492eafa07d3"
+    response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03"
+  }
+
+  restrictions {
+    geo_restriction { restriction_type = "none" }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+    minimum_protocol_version       = "TLSv1.2_2021"
+  }
+
+  tags = var.tags
 }
 
 resource "aws_s3_bucket" "logs" {
@@ -166,7 +230,9 @@ resource "aws_lb_listener" "https" {
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = aws_acm_certificate_validation.this[0].certificate_arn
+  certificate_arn = var.certificate_arn != null ? (
+    var.certificate_arn
+  ) : aws_acm_certificate_validation.this[0].certificate_arn
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.application.arn
@@ -188,7 +254,7 @@ resource "aws_lb_listener" "http" {
 }
 
 resource "aws_route53_record" "application" {
-  count   = var.enable_https ? 1 : 0
+  count   = var.enable_https && var.hosted_zone_id != null ? 1 : 0
   zone_id = var.hosted_zone_id
   name    = var.domain_name
   type    = "A"

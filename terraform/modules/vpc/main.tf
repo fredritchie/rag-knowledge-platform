@@ -178,7 +178,10 @@ resource "aws_security_group" "alb" {
     protocol    = "tcp"
     from_port   = var.alb_ingress_port
     to_port     = var.alb_ingress_port
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.alb_ingress_prefix_list_id == null ? ["0.0.0.0/0"] : []
+    prefix_list_ids = var.alb_ingress_prefix_list_id == null ? [] : [
+      var.alb_ingress_prefix_list_id,
+    ]
   }
   egress {
     description = "Forward traffic to private application targets"

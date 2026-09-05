@@ -22,6 +22,12 @@ variable "hosted_zone_id" {
   default  = null
   nullable = true
 }
+variable "certificate_arn" {
+  type        = string
+  default     = null
+  nullable    = true
+  description = "ACM certificate ARN for the externally managed DuckDNS hostname."
+}
 variable "github_repository" { type = string }
 variable "github_oidc_subject_prefix" {
   type     = string

@@ -145,39 +145,6 @@ resource "aws_iam_role_policy" "codebuild" {
   policy = data.aws_iam_policy_document.codebuild.json
 }
 
-resource "aws_security_group" "codebuild" {
-  #checkov:skip=CKV2_AWS_5: Attached to the CodeBuild project's VPC configuration.
-  name_prefix = "${var.name}-deployment-"
-  description = "No-ingress security group for private Kubernetes deployments"
-  vpc_id      = var.vpc_id
-  egress {
-    description = "Private VPC resources and EKS endpoint"
-    protocol    = "-1"
-    from_port   = 0
-    to_port     = 0
-    cidr_blocks = [var.vpc_cidr]
-  }
-  #trivy:ignore:AVD-AWS-0104 The private build needs HTTPS through NAT for GitHub and pinned Helm repositories.
-  egress {
-    description = "HTTPS through NAT for source and chart downloads"
-    protocol    = "tcp"
-    from_port   = 443
-    to_port     = 443
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  tags = merge(var.tags, { Name = "${var.name}-deployment" })
-  lifecycle { create_before_destroy = true }
-}
-
-resource "aws_vpc_security_group_ingress_rule" "eks_api" {
-  security_group_id            = var.eks_security_group_id
-  referenced_security_group_id = aws_security_group.codebuild.id
-  description                  = "Kubernetes API from the private deployment project"
-  ip_protocol                  = "tcp"
-  from_port                    = 443
-  to_port                      = 443
-}
-
 resource "aws_eks_access_entry" "codebuild" {
   cluster_name  = var.eks_cluster_name
   principal_arn = aws_iam_role.codebuild.arn
@@ -276,7 +243,7 @@ resource "aws_codebuild_project" "deploy" {
   vpc_config {
     vpc_id             = var.vpc_id
     subnets            = var.private_subnet_ids
-    security_group_ids = [aws_security_group.codebuild.id]
+    security_group_ids = [var.security_group_id]
   }
 
   tags = var.tags
