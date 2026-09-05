@@ -91,12 +91,7 @@ resource "aws_eks_node_group" "general" {
     max_size     = max(3, var.general_desired_size * 2)
   }
   update_config { max_unavailable_percentage = 33 }
-  labels = { workload = "general" }
-  taint {
-    key    = "node.cilium.io/agent-not-ready"
-    value  = "true"
-    effect = "NO_EXECUTE"
-  }
+  labels     = { workload = "general" }
   tags       = var.tags
   depends_on = [aws_eks_addon.vpc_cni]
 }
@@ -119,11 +114,6 @@ resource "aws_eks_node_group" "qdrant" {
     key    = "dedicated"
     value  = "qdrant"
     effect = "NO_SCHEDULE"
-  }
-  taint {
-    key    = "node.cilium.io/agent-not-ready"
-    value  = "true"
-    effect = "NO_EXECUTE"
   }
   tags       = var.tags
   depends_on = [aws_eks_addon.vpc_cni]
@@ -148,11 +138,6 @@ resource "aws_eks_node_group" "ingestion" {
     value  = "ingestion"
     effect = "NO_SCHEDULE"
   }
-  taint {
-    key    = "node.cilium.io/agent-not-ready"
-    value  = "true"
-    effect = "NO_EXECUTE"
-  }
   tags       = var.tags
   depends_on = [aws_eks_addon.vpc_cni]
 }
@@ -176,11 +161,6 @@ resource "aws_eks_node_group" "gpu" {
     key    = "nvidia.com/gpu"
     value  = "true"
     effect = "NO_SCHEDULE"
-  }
-  taint {
-    key    = "node.cilium.io/agent-not-ready"
-    value  = "true"
-    effect = "NO_EXECUTE"
   }
   tags       = var.tags
   depends_on = [aws_eks_addon.vpc_cni]
