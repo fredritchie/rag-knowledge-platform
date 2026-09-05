@@ -90,3 +90,17 @@ Phase 16 is complete when all of the following are true:
 
 Repository implementation can be validated while AWS is absent. The post-merge ECR/signing/GitOps
 criteria require the Phase 13 ECR repositories and publisher role to be recreated.
+
+## Manually approved dev infrastructure deployment
+
+`.github/workflows/terraform-deploy.yml` is manual-only and operates only from `main`. Run it first
+with `operation=plan`. The successful run retains a human-readable plan, binary saved plan, source
+commit, and checksum for five days. Review `plan.txt`, then start a second run with
+`operation=apply` and the successful plan run ID.
+
+The apply run rejects artifacts from another workflow, branch, failed run, or stale `main` commit.
+It verifies the source commit and plan checksum before applying the exact binary plan. Both jobs use
+the protected `dev` GitHub environment and OIDC role; no static AWS credentials are used. The
+environment must define secret `AWS_TERRAFORM_ROLE_ARN` and variables `AWS_REGION`,
+`TF_STATE_BUCKET`, and `TF_STATE_KMS_KEY_ARN`. Concurrency permits only one dev Terraform operation
+at a time.
