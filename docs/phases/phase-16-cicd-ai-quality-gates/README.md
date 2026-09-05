@@ -91,23 +91,28 @@ Phase 16 is complete when all of the following are true:
 Repository implementation can be validated while AWS is absent. The post-merge ECR/signing/GitOps
 criteria require the Phase 13 ECR repositories and publisher role to be recreated.
 
-## Manually approved dev infrastructure deployment
+## Manually approved infrastructure deployment
 
-`.github/workflows/terraform-deploy.yml` is manual-only and operates only from `main`. Run it first
-with `operation=plan`. The successful run retains a human-readable plan, binary saved plan, source
-commit, and checksum for five days. Review `plan.txt`, then start a second run with
-`operation=apply` and the successful plan run ID.
+`.github/workflows/terraform-deploy.yml` is manual-only, operates only from `main`, and supports
+`dev`, `staging`, and `prod`. Select an environment and run it first with `operation=plan`. The
+successful run retains a human-readable plan, binary saved plan, source commit, environment, and
+checksum for five days. Review `plan.txt`, then start a second run with the same environment,
+`operation=apply`, and the successful plan run ID.
 
 The apply run rejects artifacts from another workflow, branch, failed run, or stale `main` commit.
-It verifies the source commit and plan checksum before applying the exact binary plan. Both jobs use
-the protected `dev` GitHub environment and OIDC role; no static AWS credentials are used. The
-environment must define secret `AWS_TERRAFORM_ROLE_ARN` and variables `AWS_REGION`,
-`TF_STATE_BUCKET`, and `TF_STATE_KMS_KEY_ARN`. Concurrency permits only one dev Terraform operation
-at a time.
+It verifies the source commit, environment, plan kind, and checksum before applying the exact binary
+plan. Both jobs use the selected protected GitHub environment and its environment-specific OIDC
+role; no static AWS credentials are used. Each environment must define secrets
+`AWS_TERRAFORM_ROLE_ARN` and `TERRAFORM_TFVARS`, plus variables `AWS_REGION`, `TF_STATE_BUCKET`, and
+`TF_STATE_KMS_KEY_ARN`. Remote state uses a separate key under `environments/<environment>/`, and
+concurrency permits only one Terraform operation per environment at a time.
 
 For controlled teardown, run `destroy-plan` and review its `plan.txt` artifact. Then run
-`destroy-apply` with that successful run ID and the exact confirmation `destroy-dev`. A normal apply
-cannot consume a destroy plan, and a destroy apply cannot consume a normal plan. The protected
-environment approval still applies. Teardown affects only resources in the dev remote state; the
-separately bootstrapped state bucket, state KMS key, GitHub OIDC provider, and deployment role remain
-available for future deployments.
+`destroy-apply` with that successful run ID and the exact confirmation `destroy-<environment>`. A
+normal apply cannot consume a destroy plan, a destroy apply cannot consume a normal plan, and a plan
+from one environment cannot be applied to another. The protected environment approval still
+applies. Teardown affects only resources in the selected environment's remote state; the separately
+bootstrapped state bucket, state KMS key, GitHub OIDC provider, and deployment roles remain available
+for future deployments. Staging and production enable database deletion protection by default, so
+an intentional full teardown requires a separately reviewed apply that disables that protection
+before creating the destroy plan.

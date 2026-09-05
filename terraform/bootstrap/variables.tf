@@ -33,6 +33,15 @@ variable "terraform_managed_name_prefix" {
     error_message = "The managed prefix must be specific and must not include the Terraform deployment role."
   }
 }
+variable "additional_terraform_deploy_environments" {
+  type        = set(string)
+  default     = ["staging", "prod"]
+  description = "Additional protected GitHub environments that receive isolated Terraform deployment roles."
+  validation {
+    condition     = length(setsubtract(var.additional_terraform_deploy_environments, ["staging", "prod"])) == 0
+    error_message = "Additional Terraform deployment environments may contain only staging and prod."
+  }
+}
 variable "tags" {
   type    = map(string)
   default = { Project = "rag-platform", ManagedBy = "Terraform", Component = "state" }

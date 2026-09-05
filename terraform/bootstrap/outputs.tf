@@ -10,6 +10,14 @@ output "terraform_deploy_role_arn" {
   value       = aws_iam_role.terraform_deploy.arn
 }
 
+output "terraform_deploy_role_arns" {
+  description = "Terraform deployment role ARN for each protected GitHub environment."
+  value = merge(
+    { (var.terraform_deploy_environment) = aws_iam_role.terraform_deploy.arn },
+    { for environment, role in aws_iam_role.additional_terraform_deploy : environment => role.arn }
+  )
+}
+
 output "backend_hcl_template" {
   value = <<-EOT
     bucket       = "${aws_s3_bucket.state.id}"

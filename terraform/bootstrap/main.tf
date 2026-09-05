@@ -206,3 +206,106 @@ resource "aws_iam_role_policy" "terraform_deploy_iam" {
   role   = aws_iam_role.terraform_deploy.id
   policy = data.aws_iam_policy_document.terraform_deploy_iam.json
 }
+
+data "aws_iam_policy_document" "additional_terraform_deploy_assume" {
+  for_each = var.additional_terraform_deploy_environments
+  statement {
+    sid     = "GitHubEnvironmentOidc"
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [local.github_oidc_provider_arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["${var.github_oidc_subject_prefix}:environment:${each.key}"]
+    }
+  }
+}
+
+resource "aws_iam_role" "additional_terraform_deploy" {
+  for_each             = var.additional_terraform_deploy_environments
+  name                 = "rag-platform-terraform-${each.key}"
+  description          = "GitHub Actions Terraform deployment role for ${each.key}"
+  assume_role_policy   = data.aws_iam_policy_document.additional_terraform_deploy_assume[each.key].json
+  max_session_duration = 3600
+  tags                 = merge(var.tags, { Component = "terraform-deployment", Environment = each.key })
+}
+
+resource "aws_iam_role_policy_attachment" "additional_terraform_deploy_power_user" {
+  for_each   = var.additional_terraform_deploy_environments
+  role       = aws_iam_role.additional_terraform_deploy[each.key].name
+  policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess"
+}
+
+data "aws_iam_policy_document" "additional_terraform_deploy_iam" {
+  for_each = var.additional_terraform_deploy_environments
+  statement {
+    sid = "ManageProjectRoles"
+    actions = [
+      "iam:AttachRolePolicy",
+      "iam:CreateRole",
+      "iam:DeleteRole",
+      "iam:DeleteRolePolicy",
+      "iam:DetachRolePolicy",
+      "iam:GetRole",
+      "iam:GetRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListRolePolicies",
+      "iam:ListRoleTags",
+      "iam:PassRole",
+      "iam:PutRolePolicy",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:UpdateAssumeRolePolicy",
+    ]
+    resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/rag-platform-${each.key}-*"]
+  }
+  statement {
+    sid = "ManageProjectPolicies"
+    actions = [
+      "iam:CreatePolicy",
+      "iam:CreatePolicyVersion",
+      "iam:DeletePolicy",
+      "iam:DeletePolicyVersion",
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:ListPolicyTags",
+      "iam:ListPolicyVersions",
+      "iam:TagPolicy",
+      "iam:UntagPolicy",
+    ]
+    resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/rag-platform-${each.key}-*"]
+  }
+  statement {
+    sid       = "CreateRequiredServiceLinkedRoles"
+    actions   = ["iam:CreateServiceLinkedRole"]
+    resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:AWSServiceName"
+      values = [
+        "autoscaling.amazonaws.com",
+        "eks.amazonaws.com",
+        "eks-nodegroup.amazonaws.com",
+        "elasticloadbalancing.amazonaws.com",
+        "rds.amazonaws.com",
+        "spot.amazonaws.com",
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "additional_terraform_deploy_iam" {
+  for_each = var.additional_terraform_deploy_environments
+  name     = "manage-rag-platform-iam"
+  role     = aws_iam_role.additional_terraform_deploy[each.key].id
+  policy   = data.aws_iam_policy_document.additional_terraform_deploy_iam[each.key].json
+}

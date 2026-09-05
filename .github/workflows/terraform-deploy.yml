@@ -1,8 +1,17 @@
-name: terraform-dev-deployment
+name: terraform-environment-deployment
 
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: Environment to plan, apply, or destroy
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        default: dev
+        required: true
       operation:
         description: Create or apply a normal/destroy plan
         type: choice
@@ -18,7 +27,7 @@ on:
         type: string
         required: false
       confirmation:
-        description: Enter destroy-dev for destroy-apply; leave blank otherwise
+        description: Enter destroy-ENVIRONMENT for destroy-apply; leave blank otherwise
         type: string
         required: false
 
@@ -28,20 +37,21 @@ permissions:
   id-token: write
 
 concurrency:
-  group: terraform-dev
+  group: terraform-${{ inputs.environment }}
   cancel-in-progress: false
 
 env:
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
-  TF_ROOT: terraform/environments/dev
-  TF_STATE_KEY: environments/dev/terraform.tfstate
+  DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+  TF_ROOT: terraform/environments/${{ inputs.environment }}
+  TF_STATE_KEY: environments/${{ inputs.environment }}/terraform.tfstate
 
 jobs:
   plan:
     if: github.ref == 'refs/heads/main' && (inputs.operation == 'plan' || inputs.operation == 'destroy-plan')
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -54,13 +64,20 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
-          role-session-name: terraform-dev-plan
+          role-session-name: terraform-${{ inputs.environment }}-plan
 
       - name: Validate dispatch and AWS identity
         run: |
           test "${GITHUB_REF}" = "refs/heads/main"
-          test "${{ vars.AWS_REGION }}" = "ap-south-1"
+          test -n "${{ vars.AWS_REGION }}"
           aws sts get-caller-identity
+      - name: Materialize environment variables
+        env:
+          TERRAFORM_TFVARS: ${{ secrets.TERRAFORM_TFVARS }}
+        run: |
+          test -n "${TERRAFORM_TFVARS}"
+          printf '%s\n' "${TERRAFORM_TFVARS}" > "${TF_ROOT}/terraform.tfvars"
+          chmod 600 "${TF_ROOT}/terraform.tfvars"
       - name: Initialize remote state
         run: |
           terraform -chdir="${TF_ROOT}" init -reconfigure -input=false \
@@ -95,22 +112,24 @@ jobs:
           sha256sum "${TF_ROOT}/tfplan" > "${GITHUB_WORKSPACE}/tfplan.sha256"
           printf '%s\n' "${GITHUB_SHA}" > "${GITHUB_WORKSPACE}/commit.sha"
           printf '%s\n' "${plan_kind}" > "${GITHUB_WORKSPACE}/plan.kind"
+          printf '%s\n' "${DEPLOY_ENVIRONMENT}" > "${GITHUB_WORKSPACE}/plan.environment"
       - uses: actions/upload-artifact@v4
         with:
-          name: terraform-dev-plan-${{ github.run_id }}
+          name: terraform-${{ inputs.environment }}-plan-${{ github.run_id }}
           path: |
-            terraform/environments/dev/tfplan
+            terraform/environments/${{ inputs.environment }}/tfplan
             plan.txt
             tfplan.sha256
             commit.sha
             plan.kind
+            plan.environment
           if-no-files-found: error
           retention-days: 5
 
   apply:
     if: github.ref == 'refs/heads/main' && (inputs.operation == 'apply' || inputs.operation == 'destroy-apply')
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ inputs.environment }}
     steps:
       - name: Verify source plan run
         id: source
@@ -124,8 +143,8 @@ jobs:
             echo "plan_run_id must be the numeric ID of a successful plan run" >&2
             exit 1
           fi
-          if [[ "${OPERATION}" == "destroy-apply" && "${CONFIRMATION}" != "destroy-dev" ]]; then
-            echo "destroy-apply requires the exact confirmation destroy-dev" >&2
+          if [[ "${OPERATION}" == "destroy-apply" && "${CONFIRMATION}" != "destroy-${DEPLOY_ENVIRONMENT}" ]]; then
+            echo "destroy-apply requires the exact confirmation destroy-${DEPLOY_ENVIRONMENT}" >&2
             exit 1
           fi
           if [[ "${OPERATION}" == "apply" && -n "${CONFIRMATION}" ]]; then
@@ -154,10 +173,11 @@ jobs:
           PLAN_RUN_ID: ${{ inputs.plan_run_id }}
         run: |
           gh run download "${PLAN_RUN_ID}" \
-            --name "terraform-dev-plan-${PLAN_RUN_ID}" \
+            --name "terraform-${DEPLOY_ENVIRONMENT}-plan-${PLAN_RUN_ID}" \
             --dir "${GITHUB_WORKSPACE}/plan-artifact"
           expected_sha="$(cat plan-artifact/commit.sha)"
           test "${expected_sha}" = "${{ steps.source.outputs.sha }}"
+          test "$(cat plan-artifact/plan.environment)" = "${DEPLOY_ENVIRONMENT}"
           expected_kind="apply"
           if [[ "${OPERATION}" == "destroy-apply" ]]; then
             expected_kind="destroy"
@@ -167,7 +187,7 @@ jobs:
             echo "Requested ${expected_kind} but run ${PLAN_RUN_ID} contains a ${actual_kind} plan" >&2
             exit 1
           fi
-          sed "s#${TF_ROOT}/tfplan#plan-artifact/terraform/environments/dev/tfplan#" \
+          sed "s#${TF_ROOT}/tfplan#plan-artifact/${TF_ROOT}/tfplan#" \
             plan-artifact/tfplan.sha256 | sha256sum --check --strict
       - uses: hashicorp/setup-terraform@v3
         with: {terraform_version: 1.16.1, terraform_wrapper: false}
@@ -175,7 +195,14 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
-          role-session-name: terraform-dev-apply
+          role-session-name: terraform-${{ inputs.environment }}-apply
+      - name: Materialize environment variables
+        env:
+          TERRAFORM_TFVARS: ${{ secrets.TERRAFORM_TFVARS }}
+        run: |
+          test -n "${TERRAFORM_TFVARS}"
+          printf '%s\n' "${TERRAFORM_TFVARS}" > "${TF_ROOT}/terraform.tfvars"
+          chmod 600 "${TF_ROOT}/terraform.tfvars"
       - name: Initialize remote state
         run: |
           terraform -chdir="${TF_ROOT}" init -reconfigure -input=false \
@@ -188,6 +215,6 @@ jobs:
       - name: Apply reviewed saved plan
         run: |
           terraform -chdir="${TF_ROOT}" apply -input=false \
-            "${GITHUB_WORKSPACE}/plan-artifact/terraform/environments/dev/tfplan"
+            "${GITHUB_WORKSPACE}/plan-artifact/${TF_ROOT}/tfplan"
       - name: Show non-sensitive outputs
         run: terraform -chdir="${TF_ROOT}" output -no-color
