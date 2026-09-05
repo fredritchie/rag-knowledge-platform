@@ -1,7 +1,15 @@
 config:
-  awsRegion: us-east-1
-  ingestionQueueUrl: https://sqs.us-east-1.amazonaws.com/123456789012/rag-platform-dev-ingestion
+  awsRegion: ap-south-1
+  ingestionQueueUrl: https://sqs.ap-south-1.amazonaws.com/123456789012/rag-platform-dev-ingestion
   appUrl: http://replace-with-alb-hostname
+  documentBucket: rag-platform-dev-123456789012-ap-south-1
+  documentKmsKeyArn: arn:aws:kms:ap-south-1:123456789012:key/replace-me
+  cognitoIssuer: https://cognito-idp.ap-south-1.amazonaws.com/ap-south-1_replace-me
+  cognitoUserPoolId: ap-south-1_replace-me
+  cognitoClientId: replace-me
+  cognitoAuthorizeUrl: https://rag-platform-dev-123456789012.auth.ap-south-1.amazoncognito.com/oauth2/authorize
+  cognitoTokenUrl: https://rag-platform-dev-123456789012.auth.ap-south-1.amazoncognito.com/oauth2/token
+  cognitoLogoutUrl: https://rag-platform-dev-123456789012.auth.ap-south-1.amazoncognito.com/logout
 
 networkPolicy:
   # Use the exact private subnet CIDRs containing Aurora and VPC endpoints.
@@ -10,19 +18,24 @@ networkPolicy:
   # ALB source addresses are allocated from the public subnets.
   albSourceCidrs: [10.10.0.0/24, 10.10.1.0/24, 10.10.2.0/24]
   ciliumFqdnEgress:
-    postgresqlHost: rag-platform-dev.cluster-replace-me.us-east-1.rds.amazonaws.com
+    postgresqlHost: rag-platform-dev.cluster-replace-me.ap-south-1.rds.amazonaws.com
+    workerHosts:
+      - "*.s3.ap-south-1.amazonaws.com"
+      - "sqs.ap-south-1.amazonaws.com"
+      - "www.googleapis.com"
+      - "oauth2.googleapis.com"
 
 externalSecrets:
   enabled: true
-  runtimeSecretArn: arn:aws:secretsmanager:us-east-1:123456789012:secret:rag-platform-dev/runtime
-  databaseSecretArn: arn:aws:secretsmanager:us-east-1:123456789012:secret:rds/replace-me
+  runtimeSecretArn: arn:aws:secretsmanager:ap-south-1:123456789012:secret:rag-platform-dev/runtime
+  databaseSecretArn: arn:aws:secretsmanager:ap-south-1:123456789012:secret:rds/replace-me
 
 keda:
   enabled: true
 
 targetGroupBinding:
   enabled: true
-  targetGroupARN: arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/replace-me/replace-me
+  targetGroupARN: arn:aws:elasticloadbalancing:ap-south-1:123456789012:targetgroup/replace-me/replace-me
 
 ollama:
   enabled: false
@@ -30,3 +43,9 @@ ollama:
 qdrant:
   replicas: 1
   storage: 20Gi
+
+images:
+  qdrant:
+    repository: qdrant/qdrant
+    # qdrant/qdrant:v1.19.1 multi-architecture manifest.
+    digest: sha256:12364fe851b9f17356fc88189fc06d1b521262e04659ec7345975b00c9246a10

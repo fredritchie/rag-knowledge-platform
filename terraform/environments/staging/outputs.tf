@@ -1,6 +1,10 @@
 output "application_url" { value = module.platform.application_url }
 output "eks_cluster_name" { value = module.platform.eks_cluster_name }
 output "document_bucket" { value = module.platform.document_bucket }
+output "document_kms_key_arn" { value = module.platform.document_kms_key_arn }
+output "vpc_id" { value = module.platform.vpc_id }
+output "public_subnet_cidrs" { value = module.platform.public_subnet_cidrs }
+output "private_subnet_cidrs" { value = module.platform.private_subnet_cidrs }
 output "telemetry_bucket" { value = module.platform.telemetry_bucket }
 output "ingestion_queue_url" { value = module.platform.ingestion_queue_url }
 output "ingestion_dlq_url" { value = module.platform.ingestion_dlq_url }
@@ -12,8 +16,14 @@ output "aurora_master_secret_arn" {
 }
 output "cognito_user_pool_id" { value = module.platform.cognito_user_pool_id }
 output "cognito_client_id" { value = module.platform.cognito_client_id }
+output "cognito_domain" { value = module.platform.cognito_domain }
+output "cognito_authorize_url" { value = module.platform.cognito_authorize_url }
+output "cognito_token_url" { value = module.platform.cognito_token_url }
+output "cognito_logout_url" { value = module.platform.cognito_logout_url }
 output "runtime_secret_arn" { value = module.platform.runtime_secret_arn }
 output "drift_role_arn" { value = module.platform.drift_role_arn }
 output "ecr_publisher_role_arn" { value = module.platform.ecr_publisher_role_arn }
 output "sns_topic_arn" { value = module.platform.sns_topic_arn }
 output "alb_target_group_arn" { value = module.platform.alb_target_group_arn }
+output "application_deploy_project_name" { value = module.platform.application_deploy_project_name }
+output "application_deploy_role_arn" { value = module.platform.application_deploy_role_arn }

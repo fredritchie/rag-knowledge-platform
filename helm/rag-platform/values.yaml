@@ -32,6 +32,14 @@ config:
   appUrl: https://rag.example.com
   awsRegion: us-east-1
   ingestionQueueUrl: ""
+  documentBucket: replace-me-rag-documents
+  documentKmsKeyArn: arn:aws:kms:us-east-1:000000000000:key/replace-me
+  cognitoIssuer: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_replace-me
+  cognitoUserPoolId: us-east-1_replace-me
+  cognitoClientId: replace-me
+  cognitoAuthorizeUrl: https://replace-me.auth.us-east-1.amazoncognito.com/oauth2/authorize
+  cognitoTokenUrl: https://replace-me.auth.us-east-1.amazoncognito.com/oauth2/token
+  cognitoLogoutUrl: https://replace-me.auth.us-east-1.amazoncognito.com/logout
 
 observability:
   enabled: true

@@ -1,0 +1,75 @@
+name: application-environment-deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+        required: true
+      operation:
+        description: Install platform controllers, application, or both
+        type: choice
+        options: [application, platform, all]
+        default: application
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: application-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 150
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_APPLICATION_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: application-${{ inputs.environment }}-${{ github.run_id }}
+      - name: Validate protected deployment configuration
+        env:
+          PROJECT_NAME: ${{ vars.AWS_APPLICATION_DEPLOY_PROJECT }}
+        run: |
+          test -n "${PROJECT_NAME}"
+          test "${GITHUB_REF}" = "refs/heads/main"
+          aws sts get-caller-identity
+      - name: Run deployment inside the VPC
+        env:
+          DEPLOY_OPERATION: ${{ inputs.operation }}
+          PROJECT_NAME: ${{ vars.AWS_APPLICATION_DEPLOY_PROJECT }}
+        run: |
+          build_id="$(aws codebuild start-build \
+            --project-name "${PROJECT_NAME}" \
+            --environment-variables-override \
+              "name=GIT_SHA,value=${GITHUB_SHA},type=PLAINTEXT" \
+              "name=DEPLOY_OPERATION,value=${DEPLOY_OPERATION},type=PLAINTEXT" \
+            --query 'build.id' --output text)"
+          test -n "${build_id}"
+          echo "Private deployment build: ${build_id}"
+          trap 'aws codebuild stop-build --id "${build_id}" >/dev/null 2>&1 || true' EXIT
+          while true; do
+            status="$(aws codebuild batch-get-builds --ids "${build_id}" \
+              --query 'builds[0].buildStatus' --output text)"
+            case "${status}" in
+              SUCCEEDED)
+                trap - EXIT
+                exit 0
+                ;;
+              FAILED|FAULT|STOPPED|TIMED_OUT)
+                echo "Deployment build ${build_id} ended with ${status}" >&2
+                exit 1
+                ;;
+              IN_PROGRESS) sleep 20 ;;
+              *) echo "Unexpected CodeBuild status: ${status}" >&2; exit 1 ;;
+            esac
+          done

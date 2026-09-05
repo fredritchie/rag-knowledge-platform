@@ -68,6 +68,15 @@ spec:
             - {name: RAG__GENERATION__BASE_URL, value: {{ $root.Values.config.ollamaUrl | quote }}}
             - {name: AWS_REGION, value: {{ $root.Values.config.awsRegion | quote }}}
             - {name: RAG__EVENT_INGESTION__QUEUE_URL, value: {{ $root.Values.config.ingestionQueueUrl | quote }}}
+            - {name: RAG__EVENT_INGESTION__ENABLED, value: {{ if eq $workload.name "ingestion-worker" }}"true"{{ else }}"false"{{ end }}}
+            - {name: RAG__STORAGE__BUCKET, value: {{ required "config.documentBucket is required" $root.Values.config.documentBucket | quote }}}
+            - {name: RAG__STORAGE__REGION, value: {{ $root.Values.config.awsRegion | quote }}}
+            - {name: RAG__STORAGE__SERVER_SIDE_ENCRYPTION, value: "aws:kms"}
+            - {name: RAG__STORAGE__KMS_KEY_ID, value: {{ required "config.documentKmsKeyArn is required" $root.Values.config.documentKmsKeyArn | quote }}}
+            - {name: RAG__AUTH__ISSUER, value: {{ required "config.cognitoIssuer is required" $root.Values.config.cognitoIssuer | quote }}}
+            - {name: RAG__AUTH__AUDIENCE, value: {{ required "config.cognitoClientId is required" $root.Values.config.cognitoClientId | quote }}}
+            - {name: RAG__AUTH__USER_POOL_ID, value: {{ required "config.cognitoUserPoolId is required" $root.Values.config.cognitoUserPoolId | quote }}}
+            - {name: RAG__API__CORS_ORIGINS, value: {{ list $root.Values.config.appUrl | toJson | quote }}}
             - {name: RAG__OBSERVABILITY__ENABLED, value: {{ $root.Values.observability.enabled | quote }}}
             - {name: RAG__OBSERVABILITY__SERVICE_NAME, value: {{ $workload.name | quote }}}
             - {name: RAG__OBSERVABILITY__METRICS_PORT, value: {{ $root.Values.observability.metricsPort | quote }}}
@@ -80,6 +89,10 @@ spec:
             {{- else }}
             - {name: RAG_API_URL, value: {{ $root.Values.config.apiUrl | quote }}}
             - {name: NEXT_PUBLIC_APP_URL, value: {{ $root.Values.config.appUrl | quote }}}
+            - {name: COGNITO_AUTHORIZE_URL, value: {{ required "config.cognitoAuthorizeUrl is required" $root.Values.config.cognitoAuthorizeUrl | quote }}}
+            - {name: COGNITO_TOKEN_URL, value: {{ required "config.cognitoTokenUrl is required" $root.Values.config.cognitoTokenUrl | quote }}}
+            - {name: COGNITO_LOGOUT_URL, value: {{ required "config.cognitoLogoutUrl is required" $root.Values.config.cognitoLogoutUrl | quote }}}
+            - {name: COGNITO_CLIENT_ID, value: {{ required "config.cognitoClientId is required" $root.Values.config.cognitoClientId | quote }}}
             {{- end }}
           {{- if gt (int $workload.port) 0 }}
           ports:

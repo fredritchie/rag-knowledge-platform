@@ -7,7 +7,6 @@ locals {
   })
   bucket_name           = "rag-platform-${var.environment}-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
   telemetry_bucket_name = "rag-platform-${var.environment}-telemetry-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
-  auth_domain           = coalesce(var.domain_name, "localhost:3000")
   github_oidc_subject_prefix = coalesce(
     var.github_oidc_subject_prefix,
     "repo:${var.github_repository}",
@@ -78,8 +77,8 @@ module "iam" {
   sns_topic_arn              = module.monitoring.sns_topic_arn
   alert_kms_key_arn          = module.monitoring.kms_key_arn
   ecr_repository_arns        = values(module.ecr.repository_arns)
-  callback_urls              = var.enable_https ? ["https://${local.auth_domain}/auth/callback"] : ["http://${local.auth_domain}/auth/callback"]
-  logout_urls                = var.enable_https ? ["https://${local.auth_domain}/login"] : ["http://${local.auth_domain}/login"]
+  callback_urls              = ["${module.edge.application_url}/auth/callback"]
+  logout_urls                = ["${module.edge.application_url}/login"]
   deletion_protection        = var.deletion_protection
   tags                       = local.tags
 }
@@ -172,4 +171,41 @@ module "monitoring" {
   rds_cluster_identifier = module.database.cluster_identifier
   eks_cluster_name       = module.kubernetes.cluster_name
   tags                   = local.tags
+}
+
+module "deployment" {
+  source = "../deployment"
+
+  name                       = local.name
+  aws_region                 = var.aws_region
+  github_repository          = var.github_repository
+  github_oidc_subject_prefix = local.github_oidc_subject_prefix
+  github_oidc_provider_arn   = var.github_oidc_provider_arn
+  github_environment         = var.environment
+  vpc_id                     = module.vpc.vpc_id
+  vpc_cidr                   = var.vpc_cidr
+  private_subnet_ids         = module.vpc.private_subnet_ids
+  eks_security_group_id      = module.vpc.kubernetes_security_group_id
+  eks_cluster_name           = module.kubernetes.cluster_name
+  eks_cluster_arn            = module.kubernetes.cluster_arn
+  application_url            = module.edge.application_url
+  document_bucket            = module.documents.bucket_id
+  document_kms_key_arn       = module.documents.kms_key_arn
+  telemetry_bucket           = module.telemetry.bucket_id
+  ingestion_queue_url        = module.queues.queue_url
+  aurora_endpoint            = module.database.cluster_endpoint
+  aurora_secret_arn          = module.database.master_user_secret_arn
+  runtime_secret_arn         = module.iam.runtime_secret_arn
+  grafana_admin_secret_arn   = module.iam.grafana_admin_secret_arn
+  runtime_kms_key_arn        = module.iam.runtime_kms_key_arn
+  cognito_user_pool_id       = module.iam.cognito_user_pool_id
+  cognito_client_id          = module.iam.cognito_client_id
+  cognito_authorize_url      = module.iam.cognito_authorize_url
+  cognito_token_url          = module.iam.cognito_token_url
+  cognito_logout_url         = module.iam.cognito_logout_url
+  sns_topic_arn              = module.monitoring.sns_topic_arn
+  alb_target_group_arn       = module.edge.target_group_arn
+  public_subnet_cidrs        = var.public_subnet_cidrs
+  private_subnet_cidrs       = var.private_subnet_cidrs
+  tags                       = local.tags
 }
