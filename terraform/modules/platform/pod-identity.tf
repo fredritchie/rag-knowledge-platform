@@ -294,5 +294,6 @@ resource "aws_eks_addon" "ebs_csi" {
     role_arn        = aws_iam_role.ebs_csi.arn
     service_account = "ebs-csi-controller-sa"
   }
-  tags = local.tags
+  tags       = local.tags
+  depends_on = [module.kubernetes]
 }
