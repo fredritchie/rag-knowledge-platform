@@ -1,0 +1,79 @@
+name: DuckDNS Let's Encrypt certificate
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment certificate to issue or renew
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+        required: true
+  schedule:
+    - cron: "17 3 1 * *"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: duckdns-certificate-${{ github.event_name == 'schedule' && 'dev' || inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  certificate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ github.event_name == 'schedule' && 'dev' || inputs.environment }}
+    env:
+      DEPLOY_ENVIRONMENT: ${{ github.event_name == 'schedule' && 'dev' || inputs.environment }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: certificate-${{ github.run_id }}
+      - name: Resolve environment configuration
+        run: |
+          set -Eeuo pipefail
+          case "$DEPLOY_ENVIRONMENT" in
+            dev) subdomain=fred-rag-dev ;;
+            staging) subdomain=fred-rag-stage ;;
+            prod) subdomain=fred-rag ;;
+            *) echo "Unsupported environment: $DEPLOY_ENVIRONMENT" >&2; exit 2 ;;
+          esac
+          test -n "${{ vars.LETSENCRYPT_EMAIL }}"
+          echo "DUCKDNS_SUBDOMAIN=$subdomain" >>"$GITHUB_ENV"
+          echo "LETSENCRYPT_EMAIL=${{ vars.LETSENCRYPT_EMAIL }}" >>"$GITHUB_ENV"
+          echo "CERTIFICATE_PARAMETER=/rag-platform/$DEPLOY_ENVIRONMENT/letsencrypt/acm_certificate_arn" >>"$GITHUB_ENV"
+      - name: Install Certbot
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes certbot
+      - name: Issue or renew and import certificate
+        env:
+          DUCKDNS_TOKEN: ${{ secrets.DUCKDNS_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$DUCKDNS_TOKEN"
+          echo "::add-mask::$DUCKDNS_TOKEN"
+          existing_arn=$(aws ssm get-parameter \
+            --name "$CERTIFICATE_PARAMETER" \
+            --query Parameter.Value --output text 2>/dev/null || true)
+          [[ "$existing_arn" == "None" ]] && existing_arn=""
+          certificate_arn=$(./scripts/issue_letsencrypt_duckdns.sh \
+            "$LETSENCRYPT_EMAIL" "$DUCKDNS_SUBDOMAIN" "$existing_arn")
+          expected_domain="${DUCKDNS_SUBDOMAIN}.duckdns.org"
+          read -r actual_domain status < <(aws acm describe-certificate \
+            --certificate-arn "$certificate_arn" \
+            --query 'Certificate.[DomainName,Status]' --output text)
+          test "$actual_domain" = "$expected_domain"
+          test "$status" = "ISSUED"
+          aws ssm put-parameter --overwrite --type String \
+            --name "$CERTIFICATE_PARAMETER" --value "$certificate_arn" >/dev/null
+          printf 'Certificate ready for %s and registered for Terraform pipeline use.\n' "$expected_domain"

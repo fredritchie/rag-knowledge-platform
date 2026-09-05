@@ -8,45 +8,30 @@ The platform reserves one external hostname per environment:
 | staging | `fred-rag-stage.duckdns.org` |
 | prod | `fred-rag.duckdns.org` |
 
-DuckDNS is external DNS. Terraform does not receive the DuckDNS token or TLS private key. Each
-environment instead receives an ACM certificate ARN through its protected `TERRAFORM_TFVARS`
-GitHub environment secret.
+DuckDNS is external DNS. Terraform never receives the DuckDNS token or TLS private key. The
+certificate workflow issues or renews the certificate and stores its ACM ARN in an environment
+specific SSM parameter. The Terraform plan workflow reads that parameter and writes an ephemeral
+`zz-pipeline.auto.tfvars.json`; no manual certificate variable edit is required.
 
 ## Certificate preparation
 
-1. Issue a public certificate for the environment hostname with an ACME client using the DuckDNS
-   DNS-01 challenge and the account's DuckDNS token.
-2. Import the certificate, unencrypted private key, and CA chain into ACM in `ap-south-1`.
-3. Set these values in the environment's `TERRAFORM_TFVARS` secret:
+1. Store the DuckDNS token as the `DUCKDNS_TOKEN` secret in the target GitHub environment.
+2. Set the non-secret `LETSENCRYPT_EMAIL` variable in that environment.
+3. Run **DuckDNS Let's Encrypt certificate** for the target environment. It performs the DNS-01
+   challenge, imports the certificate into ACM in `ap-south-1`, validates it, and records the ARN at
+   `/rag-platform/ENVIRONMENT/letsencrypt/acm_certificate_arn` in SSM Parameter Store.
+4. Run the normal Terraform plan and reviewed apply pipeline. The plan injects the domain,
+   certificate ARN, and DuckDNS settings automatically. Terraform creates a Global Accelerator in
+   front of the ALB, and the apply job publishes its primary static address through DuckDNS.
 
-   ```hcl
-   enable_https    = true
-   domain_name     = "fred-rag-dev.duckdns.org"
-   hosted_zone_id  = null
-   certificate_arn = "arn:aws:acm:ap-south-1:ACCOUNT_ID:certificate/CERTIFICATE_ID"
-   ```
-
-   Replace the hostname for staging or production using the table above.
-4. Run the normal Terraform plan and reviewed apply pipeline. Terraform configures the ALB HTTPS
-   listener and uses the HTTPS hostname for Cognito callback and logout URLs.
-
-Imported ACM certificates are not renewed by AWS. Renew with the ACME client and reimport the new
-certificate into the same ACM ARN before expiry so the ALB association remains unchanged.
+Imported ACM certificates are not renewed by AWS. The certificate workflow runs monthly for dev
+and reimports into the same ACM ARN. Add staging and production to the scheduled matrix only after
+those environments and their GitHub secrets are active.
 
 ## DNS routing limitation
 
-DuckDNS publishes one IPv4 address; it cannot publish the ALB DNS name as a CNAME or Route53-style
-alias. An ALB has service-managed addresses that can change and normally exposes one address per
-enabled Availability Zone. The IP currently shown in the DuckDNS UI must not be treated as the ALB
-endpoint.
-
-For a temporary development endpoint, update the DuckDNS record from a monitored resolver using a
-currently resolved ALB address and refresh it whenever the ALB answer changes. This is not a
-production-ready availability design.
-
-Before staging or production traffic is enabled, choose one of these durable ingress arrangements:
-
-- place a static-IP AWS ingress layer in front of the ALB and publish its address in DuckDNS; or
-- move DNS hosting to a provider that supports a CNAME/alias to the ALB DNS name.
-
-The second option retains all three ALB Availability Zones and is the recommended production path.
+DuckDNS publishes one IPv4 address and cannot publish the ALB DNS name as a CNAME or Route53-style
+alias. Global Accelerator therefore provides stable addresses in front of the three-AZ ALB. The
+pipeline publishes its primary address automatically. Global Accelerator supplies two addresses,
+but DuckDNS can publish only one; moving to a DNS provider that supports multiple A records or an
+alias remains the path to full DNS-level edge redundancy.

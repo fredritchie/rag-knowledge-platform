@@ -28,6 +28,10 @@ variable "certificate_arn" {
   nullable    = true
   description = "ACM certificate ARN for the externally managed DuckDNS hostname."
 }
+variable "enable_duckdns" {
+  type    = bool
+  default = false
+}
 variable "github_repository" { type = string }
 variable "github_oidc_subject_prefix" {
   type     = string
