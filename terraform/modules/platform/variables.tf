@@ -19,6 +19,10 @@ variable "certificate_arn" {
   default  = null
   nullable = true
 }
+variable "enable_duckdns" {
+  type    = bool
+  default = false
+}
 variable "github_repository" { type = string }
 variable "github_oidc_subject_prefix" {
   type     = string

@@ -5,6 +5,13 @@ locals {
   manage_certificate = var.enable_https && var.certificate_arn == null
 }
 
+check "duckdns_requires_https" {
+  assert {
+    condition     = !var.enable_duckdns || var.enable_https
+    error_message = "DuckDNS ingress requires HTTPS and a valid certificate."
+  }
+}
+
 resource "aws_acm_certificate" "this" {
   count             = local.manage_certificate ? 1 : 0
   domain_name       = var.domain_name
@@ -173,6 +180,29 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
 
 data "aws_iam_policy_document" "logs" {
   statement {
+    sid       = "AllowGlobalAcceleratorBucketCheck"
+    actions   = ["s3:GetBucketAcl"]
+    resources = [aws_s3_bucket.logs.arn]
+    principals {
+      type        = "Service"
+      identifiers = ["delivery.logs.amazonaws.com"]
+    }
+  }
+  statement {
+    sid       = "AllowGlobalAcceleratorLogDelivery"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.logs.arn}/global-accelerator/AWSLogs/${data.aws_caller_identity.current.account_id}/*"]
+    principals {
+      type        = "Service"
+      identifiers = ["delivery.logs.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "s3:x-amz-acl"
+      values   = ["bucket-owner-full-control"]
+    }
+  }
+  statement {
     sid       = "AllowALBLogDelivery"
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.logs.arn}/alb/${var.name}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"]
@@ -196,6 +226,56 @@ data "aws_iam_policy_document" "logs" {
       values   = ["false"]
     }
   }
+}
+
+resource "aws_globalaccelerator_accelerator" "duckdns" {
+  count = var.enable_duckdns ? 1 : 0
+
+  name            = substr("${var.name}-duckdns", 0, 64)
+  enabled         = true
+  ip_address_type = "IPV4"
+
+  attributes {
+    flow_logs_enabled   = true
+    flow_logs_s3_bucket = aws_s3_bucket.logs.id
+    flow_logs_s3_prefix = "global-accelerator"
+  }
+
+  tags       = var.tags
+  depends_on = [aws_s3_bucket_policy.logs]
+}
+
+resource "aws_globalaccelerator_listener" "duckdns" {
+  count = var.enable_duckdns ? 1 : 0
+
+  accelerator_arn = aws_globalaccelerator_accelerator.duckdns[0].id
+  client_affinity = "SOURCE_IP"
+  protocol        = "TCP"
+
+  port_range {
+    from_port = 443
+    to_port   = 443
+  }
+}
+
+resource "aws_globalaccelerator_endpoint_group" "duckdns" {
+  count = var.enable_duckdns ? 1 : 0
+
+  listener_arn                  = aws_globalaccelerator_listener.duckdns[0].id
+  endpoint_group_region         = data.aws_region.current.region
+  health_check_interval_seconds = 30
+  health_check_path             = "/"
+  health_check_port             = 443
+  health_check_protocol         = "HTTPS"
+  threshold_count               = 3
+
+  endpoint_configuration {
+    endpoint_id                    = aws_lb.this.arn
+    client_ip_preservation_enabled = true
+    weight                         = 100
+  }
+
+  depends_on = [aws_lb_listener.https]
 }
 
 resource "aws_s3_bucket_policy" "logs" {

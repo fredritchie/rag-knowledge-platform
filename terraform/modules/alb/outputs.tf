@@ -11,3 +11,11 @@ output "certificate_arn" {
 }
 output "waf_arn" { value = aws_wafv2_web_acl.this.arn }
 output "access_log_bucket" { value = aws_s3_bucket.logs.id }
+output "duckdns_ipv4" {
+  value       = var.enable_duckdns ? aws_globalaccelerator_accelerator.duckdns[0].ip_sets[0].ip_addresses[0] : null
+  description = "Primary stable Global Accelerator IPv4 address to publish through DuckDNS."
+}
+output "global_accelerator_ipv4_addresses" {
+  value       = var.enable_duckdns ? aws_globalaccelerator_accelerator.duckdns[0].ip_sets[0].ip_addresses : []
+  description = "All Global Accelerator addresses; DuckDNS can publish only one IPv4 address."
+}

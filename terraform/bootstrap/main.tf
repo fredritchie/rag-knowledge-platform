@@ -195,6 +195,7 @@ data "aws_iam_policy_document" "terraform_deploy_iam" {
         "eks.amazonaws.com",
         "eks-nodegroup.amazonaws.com",
         "elasticloadbalancing.amazonaws.com",
+        "globalaccelerator.amazonaws.com",
         "rds.amazonaws.com",
         "spot.amazonaws.com",
       ]
@@ -303,6 +304,7 @@ data "aws_iam_policy_document" "additional_terraform_deploy_iam" {
         "eks.amazonaws.com",
         "eks-nodegroup.amazonaws.com",
         "elasticloadbalancing.amazonaws.com",
+        "globalaccelerator.amazonaws.com",
         "rds.amazonaws.com",
         "spot.amazonaws.com",
       ]

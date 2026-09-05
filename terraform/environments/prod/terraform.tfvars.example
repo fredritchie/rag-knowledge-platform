@@ -9,6 +9,7 @@ enable_https             = true
 domain_name              = "fred-rag.duckdns.org"
 hosted_zone_id           = null
 certificate_arn          = "arn:aws:acm:ap-south-1:123456789012:certificate/replace-with-duckdns-certificate"
+enable_duckdns           = true
 github_repository        = "your-org/production-rag-knowledge-platform"
 # Set this when GitHub immutable OIDC subjects are enabled, using the repository API's sub_claim_prefix.
 github_oidc_subject_prefix = null
