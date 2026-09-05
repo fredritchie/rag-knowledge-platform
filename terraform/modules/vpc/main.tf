@@ -196,7 +196,10 @@ resource "aws_security_group" "alb" {
 
 resource "aws_security_group" "kubernetes" {
   #checkov:skip=CKV2_AWS_5: Attached to EKS in the Kubernetes module.
-  name_prefix = "${var.name}-kubernetes-"
+  # The v2 suffix deliberately replaces security groups created before ALB-source
+  # changes were replacement-aware. This avoids revoking an AWS-removed inline
+  # rule during the one-time migration.
+  name_prefix = "${var.name}-kubernetes-v2-"
   description = "Private Kubernetes workloads"
   vpc_id      = aws_vpc.this.id
   ingress {
@@ -229,5 +232,12 @@ resource "aws_security_group" "kubernetes" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   tags = merge(var.tags, { Name = "${var.name}-kubernetes" })
-  lifecycle { create_before_destroy = true }
+  lifecycle {
+    create_before_destroy = true
+
+    # The ALB is the source of the frontend rule. Replacing this security group
+    # together with any ALB security-group change prevents stale referenced rules
+    # from being revoked after AWS has already removed them.
+    replace_triggered_by = [aws_security_group.alb]
+  }
 }
