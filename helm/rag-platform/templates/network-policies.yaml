@@ -182,6 +182,18 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: api-to-pod-identity-agent
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: rag-platform, app.kubernetes.io/component: api}
+  policyTypes: [Egress]
+  egress:
+    - to: [{ipBlock: {cidr: 169.254.170.23/32}}]
+      ports: [{protocol: TCP, port: 80}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: workers-to-pod-identity-agent
 spec:
   podSelector:
