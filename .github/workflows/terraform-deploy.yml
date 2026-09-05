@@ -4,15 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Create a plan or apply a plan from a successful earlier run
+        description: Create or apply a normal/destroy plan
         type: choice
         options:
           - plan
           - apply
+          - destroy-plan
+          - destroy-apply
         default: plan
         required: true
       plan_run_id:
-        description: Successful plan workflow run ID (required only for apply)
+        description: Successful matching plan run ID (required for apply operations)
+        type: string
+        required: false
+      confirmation:
+        description: Enter destroy-dev for destroy-apply; leave blank otherwise
         type: string
         required: false
 
@@ -33,7 +39,7 @@ env:
 
 jobs:
   plan:
-    if: github.ref == 'refs/heads/main' && inputs.operation == 'plan'
+    if: github.ref == 'refs/heads/main' && (inputs.operation == 'plan' || inputs.operation == 'destroy-plan')
     runs-on: ubuntu-latest
     environment: dev
     steps:
@@ -74,11 +80,21 @@ jobs:
           python -m pip install checkov==3.3.16
           checkov -d terraform --framework terraform --compact
       - name: Create saved plan
+        env:
+          OPERATION: ${{ inputs.operation }}
         run: |
-          terraform -chdir="${TF_ROOT}" plan -input=false -lock-timeout=5m -out=tfplan
+          plan_kind="apply"
+          plan_args=()
+          if [[ "${OPERATION}" == "destroy-plan" ]]; then
+            plan_kind="destroy"
+            plan_args+=("-destroy")
+          fi
+          terraform -chdir="${TF_ROOT}" plan "${plan_args[@]}" \
+            -input=false -lock-timeout=5m -out=tfplan
           terraform -chdir="${TF_ROOT}" show -no-color tfplan > "${GITHUB_WORKSPACE}/plan.txt"
           sha256sum "${TF_ROOT}/tfplan" > "${GITHUB_WORKSPACE}/tfplan.sha256"
           printf '%s\n' "${GITHUB_SHA}" > "${GITHUB_WORKSPACE}/commit.sha"
+          printf '%s\n' "${plan_kind}" > "${GITHUB_WORKSPACE}/plan.kind"
       - uses: actions/upload-artifact@v4
         with:
           name: terraform-dev-plan-${{ github.run_id }}
@@ -87,22 +103,33 @@ jobs:
             plan.txt
             tfplan.sha256
             commit.sha
+            plan.kind
           if-no-files-found: error
           retention-days: 5
 
   apply:
-    if: github.ref == 'refs/heads/main' && inputs.operation == 'apply'
+    if: github.ref == 'refs/heads/main' && (inputs.operation == 'apply' || inputs.operation == 'destroy-apply')
     runs-on: ubuntu-latest
     environment: dev
     steps:
       - name: Verify source plan run
         id: source
         env:
+          CONFIRMATION: ${{ inputs.confirmation }}
           GH_TOKEN: ${{ github.token }}
+          OPERATION: ${{ inputs.operation }}
           PLAN_RUN_ID: ${{ inputs.plan_run_id }}
         run: |
           if [[ ! "${PLAN_RUN_ID}" =~ ^[0-9]+$ ]]; then
             echo "plan_run_id must be the numeric ID of a successful plan run" >&2
+            exit 1
+          fi
+          if [[ "${OPERATION}" == "destroy-apply" && "${CONFIRMATION}" != "destroy-dev" ]]; then
+            echo "destroy-apply requires the exact confirmation destroy-dev" >&2
+            exit 1
+          fi
+          if [[ "${OPERATION}" == "apply" && -n "${CONFIRMATION}" ]]; then
+            echo "confirmation must be blank for a normal apply" >&2
             exit 1
           fi
           run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PLAN_RUN_ID}")"
@@ -123,6 +150,7 @@ jobs:
       - name: Download saved plan
         env:
           GH_TOKEN: ${{ github.token }}
+          OPERATION: ${{ inputs.operation }}
           PLAN_RUN_ID: ${{ inputs.plan_run_id }}
         run: |
           gh run download "${PLAN_RUN_ID}" \
@@ -130,6 +158,15 @@ jobs:
             --dir "${GITHUB_WORKSPACE}/plan-artifact"
           expected_sha="$(cat plan-artifact/commit.sha)"
           test "${expected_sha}" = "${{ steps.source.outputs.sha }}"
+          expected_kind="apply"
+          if [[ "${OPERATION}" == "destroy-apply" ]]; then
+            expected_kind="destroy"
+          fi
+          actual_kind="$(cat plan-artifact/plan.kind)"
+          if [[ "${actual_kind}" != "${expected_kind}" ]]; then
+            echo "Requested ${expected_kind} but run ${PLAN_RUN_ID} contains a ${actual_kind} plan" >&2
+            exit 1
+          fi
           sed "s#${TF_ROOT}/tfplan#plan-artifact/terraform/environments/dev/tfplan#" \
             plan-artifact/tfplan.sha256 | sha256sum --check --strict
       - uses: hashicorp/setup-terraform@v3

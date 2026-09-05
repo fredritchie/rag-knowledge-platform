@@ -104,3 +104,10 @@ the protected `dev` GitHub environment and OIDC role; no static AWS credentials 
 environment must define secret `AWS_TERRAFORM_ROLE_ARN` and variables `AWS_REGION`,
 `TF_STATE_BUCKET`, and `TF_STATE_KMS_KEY_ARN`. Concurrency permits only one dev Terraform operation
 at a time.
+
+For controlled teardown, run `destroy-plan` and review its `plan.txt` artifact. Then run
+`destroy-apply` with that successful run ID and the exact confirmation `destroy-dev`. A normal apply
+cannot consume a destroy plan, and a destroy apply cannot consume a normal plan. The protected
+environment approval still applies. Teardown affects only resources in the dev remote state; the
+separately bootstrapped state bucket, state KMS key, GitHub OIDC provider, and deployment role remain
+available for future deployments.
