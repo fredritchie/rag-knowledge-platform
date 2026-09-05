@@ -176,6 +176,8 @@ jobs:
           path: release-artifacts
           merge-multiple: true
       - name: Update immutable image manifest
+        env:
+          PYTHONPATH: src
         run: |
           python scripts/update_gitops_images.py \
             --artifacts-dir release-artifacts \
