@@ -199,6 +199,12 @@ data "aws_iam_policy_document" "terraform_deploy_iam" {
       ]
     }
   }
+
+  statement {
+    sid       = "ReadRequiredServiceLinkedRoles"
+    actions   = ["iam:GetRole"]
+    resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "terraform_deploy_iam" {
@@ -300,6 +306,12 @@ data "aws_iam_policy_document" "additional_terraform_deploy_iam" {
         "spot.amazonaws.com",
       ]
     }
+  }
+
+  statement {
+    sid       = "ReadRequiredServiceLinkedRoles"
+    actions   = ["iam:GetRole"]
+    resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/*"]
   }
 }
 
