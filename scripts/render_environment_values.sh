@@ -72,6 +72,7 @@ jq -n \
       runtimeSecretArn: $runtime_secret,
       databaseSecretArn: $database_secret
     },
+    storageClass: {create: false, name: "gp3"},
     keda: {enabled: true},
     targetGroupBinding: {enabled: true, targetGroupARN: $target_group},
     admissionPolicy: {enabled: true, certificateIdentity: $certificate_identity},
