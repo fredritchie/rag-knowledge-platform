@@ -19,6 +19,11 @@ variable "certificate_arn" {
   nullable    = true
   description = "Existing ACM certificate ARN for externally managed DNS providers such as DuckDNS."
 }
+variable "enable_duckdns" {
+  type        = bool
+  default     = false
+  description = "Create a static Global Accelerator entry point for the external DuckDNS A record."
+}
 variable "vpc_id" { type = string }
 variable "public_subnet_ids" { type = list(string) }
 variable "security_group_id" { type = string }

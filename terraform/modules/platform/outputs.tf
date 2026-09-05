@@ -27,3 +27,5 @@ output "sns_topic_arn" { value = module.monitoring.sns_topic_arn }
 output "alb_target_group_arn" { value = module.edge.target_group_arn }
 output "application_deploy_project_name" { value = module.deployment.project_name }
 output "application_deploy_role_arn" { value = module.deployment.trigger_role_arn }
+output "duckdns_ipv4" { value = module.edge.duckdns_ipv4 }
+output "global_accelerator_ipv4_addresses" { value = module.edge.global_accelerator_ipv4_addresses }

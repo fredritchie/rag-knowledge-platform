@@ -78,6 +78,41 @@ jobs:
           test -n "${TERRAFORM_TFVARS}"
           printf '%s\n' "${TERRAFORM_TFVARS}" > "${TF_ROOT}/terraform.tfvars"
           chmod 600 "${TF_ROOT}/terraform.tfvars"
+      - name: Resolve pipeline-managed DuckDNS and certificate variables
+        run: |
+          set -Eeuo pipefail
+          case "${DEPLOY_ENVIRONMENT}" in
+            dev) subdomain=fred-rag-dev ;;
+            staging) subdomain=fred-rag-stage ;;
+            prod) subdomain=fred-rag ;;
+            *) echo "Unsupported environment: ${DEPLOY_ENVIRONMENT}" >&2; exit 2 ;;
+          esac
+          domain_name="${subdomain}.duckdns.org"
+          parameter_name="/rag-platform/${DEPLOY_ENVIRONMENT}/letsencrypt/acm_certificate_arn"
+          certificate_arn=$(aws ssm get-parameter \
+            --name "${parameter_name}" \
+            --query Parameter.Value --output text 2>/dev/null || true)
+          if [[ ! "${certificate_arn}" =~ ^arn:aws:acm:${{ vars.AWS_REGION }}:[0-9]{12}:certificate/.+ ]]; then
+            echo "No pipeline-managed certificate is registered for ${domain_name}. Run the DuckDNS certificate workflow first." >&2
+            exit 2
+          fi
+          read -r actual_domain status < <(aws acm describe-certificate \
+            --certificate-arn "${certificate_arn}" \
+            --query 'Certificate.[DomainName,Status]' --output text)
+          if [[ "${actual_domain}" != "${domain_name}" || "${status}" != "ISSUED" ]]; then
+            echo "Certificate is not usable for ${domain_name}: domain=${actual_domain} status=${status}" >&2
+            exit 2
+          fi
+          jq -n \
+            --arg domain_name "${domain_name}" \
+            --arg certificate_arn "${certificate_arn}" \
+            '{
+              enable_https: true,
+              enable_duckdns: true,
+              domain_name: $domain_name,
+              hosted_zone_id: null,
+              certificate_arn: $certificate_arn
+            }' > "${TF_ROOT}/zz-pipeline.auto.tfvars.json"
       - name: Initialize remote state
         run: |
           terraform -chdir="${TF_ROOT}" init -reconfigure -input=false \
@@ -218,3 +253,20 @@ jobs:
             "${GITHUB_WORKSPACE}/plan-artifact/${TF_ROOT}/tfplan"
       - name: Show non-sensitive outputs
         run: terraform -chdir="${TF_ROOT}" output -no-color
+      - name: Publish stable Global Accelerator address to DuckDNS
+        if: inputs.operation == 'apply'
+        env:
+          DUCKDNS_TOKEN: ${{ secrets.DUCKDNS_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          case "${DEPLOY_ENVIRONMENT}" in
+            dev) subdomain=fred-rag-dev ;;
+            staging) subdomain=fred-rag-stage ;;
+            prod) subdomain=fred-rag ;;
+            *) echo "Unsupported environment: ${DEPLOY_ENVIRONMENT}" >&2; exit 2 ;;
+          esac
+          test -n "${DUCKDNS_TOKEN}"
+          echo "::add-mask::${DUCKDNS_TOKEN}"
+          duckdns_ip=$(terraform -chdir="${TF_ROOT}" output -raw duckdns_ipv4)
+          DUCKDNS_TOKEN="${DUCKDNS_TOKEN}" scripts/update_duckdns.sh \
+            "${subdomain}" "${duckdns_ip}"

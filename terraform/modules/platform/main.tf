@@ -199,6 +199,7 @@ module "edge" {
   domain_name           = var.domain_name
   hosted_zone_id        = var.hosted_zone_id
   certificate_arn       = var.certificate_arn
+  enable_duckdns        = var.enable_duckdns
   vpc_id                = module.vpc.vpc_id
   public_subnet_ids     = module.vpc.public_subnet_ids
   security_group_id     = module.vpc.alb_security_group_id
