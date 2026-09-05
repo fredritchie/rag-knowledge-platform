@@ -88,6 +88,10 @@ networkPolicy:
   ciliumFqdnEgress:
     enabled: true
     postgresqlHost: ""
+    apiHosts:
+      - cognito-idp.us-east-1.amazonaws.com
+    frontendHosts:
+      - replace-me.auth.us-east-1.amazoncognito.com
     workerHosts:
       - "*.s3.us-east-1.amazonaws.com"
       - "sqs.us-east-1.amazonaws.com"

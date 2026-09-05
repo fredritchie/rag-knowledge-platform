@@ -57,6 +57,8 @@ jq -n \
       ciliumFqdnEgress: {
         enabled: true,
         postgresqlHost: $database_host,
+        apiHosts: [("cognito-idp." + $region + ".amazonaws.com")],
+        frontendHosts: [($authorize_url | capture("https://(?<host>[^/]+)").host)],
         workerHosts: [
           ("*.s3." + $region + ".amazonaws.com"),
           ("sqs." + $region + ".amazonaws.com"),

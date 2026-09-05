@@ -2,6 +2,36 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
+  name: frontend-cognito-egress
+spec:
+  endpointSelector:
+    matchLabels: {app.kubernetes.io/component: frontend}
+  egress:
+    - toFQDNs:
+        {{- range .Values.networkPolicy.ciliumFqdnEgress.frontendHosts }}
+        - matchName: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports: [{port: "443", protocol: TCP}]
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: api-cognito-egress
+spec:
+  endpointSelector:
+    matchLabels: {app.kubernetes.io/component: api}
+  egress:
+    - toFQDNs:
+        {{- range .Values.networkPolicy.ciliumFqdnEgress.apiHosts }}
+        - matchName: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports: [{port: "443", protocol: TCP}]
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
   name: workers-fqdn-egress
 spec:
   endpointSelector:
