@@ -83,6 +83,7 @@ helm upgrade --install loki grafana-community/loki --version "${LOKI_VERSION}" \
 helm upgrade --install tempo grafana-community/tempo --version "${TEMPO_VERSION}" \
   --namespace monitoring --values "${platform_dir}/tempo-values.yaml" \
   --set-string tempo.storage.trace.s3.bucket="${TELEMETRY_BUCKET}" \
+  --set-string tempo.storage.trace.s3.endpoint="s3.${AWS_REGION}.amazonaws.com" \
   --set-string tempo.storage.trace.s3.region="${AWS_REGION}" --wait --timeout 15m
 helm upgrade --install opentelemetry-collector open-telemetry/opentelemetry-collector \
   --version "${OPENTELEMETRY_COLLECTOR_VERSION}" --namespace monitoring \
