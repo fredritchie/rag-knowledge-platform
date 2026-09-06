@@ -18,8 +18,8 @@ spec:
           verifyDigest: true
           required: true
           imageRegistryCredentials:
-            helpers:
-              {{- toYaml .Values.admissionPolicy.registryCredentialHelpers | nindent 14 }}
+            providers:
+              {{- toYaml .Values.admissionPolicy.registryCredentialProviders | nindent 14 }}
           attestors:
             - count: 1
               entries:
