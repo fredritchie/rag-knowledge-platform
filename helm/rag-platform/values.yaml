@@ -137,4 +137,4 @@ admissionPolicy:
   certificateIdentity: "https://github.com/replace-me/production-rag-knowledge-platform/.github/workflows/supply-chain.yml@refs/heads/main"
   certificateIssuer: "https://token.actions.githubusercontent.com"
   rekorUrl: "https://rekor.sigstore.dev"
-  registryCredentialHelpers: [amazon]
+  registryCredentialProviders: [amazon]
