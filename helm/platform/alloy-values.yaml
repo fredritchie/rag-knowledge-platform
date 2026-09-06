@@ -2,6 +2,10 @@ controller:
   type: daemonset
   tolerations:
     - {operator: Exists}
+  volumes:
+    extra:
+      - name: alloy-storage
+        emptyDir: {}
 
 global:
   podSecurityContext:
@@ -18,6 +22,9 @@ alloy:
     capabilities: {drop: [ALL]}
   mounts:
     varlog: true
+    extra:
+      - name: alloy-storage
+        mountPath: /tmp/alloy
   configMap:
     content: |
       logging {
