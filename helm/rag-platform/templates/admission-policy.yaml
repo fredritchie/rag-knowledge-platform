@@ -23,5 +23,6 @@ spec:
                 - keyless:
                     subject: {{ .Values.admissionPolicy.certificateIdentity | quote }}
                     issuer: {{ .Values.admissionPolicy.certificateIssuer | quote }}
+                    rekor:
+                      url: {{ .Values.admissionPolicy.rekorUrl | quote }}
 {{- end }}
-
