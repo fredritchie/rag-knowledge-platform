@@ -161,11 +161,12 @@ resource "aws_eks_access_policy_association" "codebuild" {
 }
 
 resource "aws_codebuild_project" "deploy" {
-  name           = "${var.name}-application-deploy"
-  description    = "VPC-attached Helm deployment for the private EKS cluster"
-  service_role   = aws_iam_role.codebuild.arn
-  build_timeout  = 120
-  queued_timeout = 60
+  name                   = "${var.name}-application-deploy"
+  description            = "VPC-attached Helm deployment for the private EKS cluster"
+  service_role           = aws_iam_role.codebuild.arn
+  build_timeout          = 120
+  queued_timeout         = 60
+  concurrent_build_limit = 1
 
   artifacts { type = "NO_ARTIFACTS" }
   source {

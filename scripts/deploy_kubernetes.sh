@@ -15,6 +15,40 @@ for name in "${required[@]}"; do
   fi
 done
 
+recover_interrupted_release() {
+  local release_name="$1"
+  local release_namespace="$2"
+  local release_status
+  local deployed_revision
+
+  if ! release_status="$(helm status "${release_name}" --namespace "${release_namespace}" \
+    --output json 2>/dev/null | jq -er '.info.status')"; then
+    return
+  fi
+
+  case "${release_status}" in
+    pending-install)
+      if [[ "$(helm history "${release_name}" --namespace "${release_namespace}" \
+        --output json | jq 'length')" -ne 1 ]]; then
+        echo "Refusing to remove unexpected pending install history for ${release_name}" >&2
+        return 1
+      fi
+      echo "Removing interrupted initial Helm install for ${release_name}"
+      helm uninstall "${release_name}" --namespace "${release_namespace}" --wait --timeout 10m
+      ;;
+    pending-upgrade|pending-rollback)
+      if ! deployed_revision="$(helm history "${release_name}" --namespace "${release_namespace}" \
+        --output json | jq -er '[.[] | select(.status == "deployed")] | last | .revision')"; then
+        echo "No deployed revision is available to recover ${release_name}" >&2
+        return 1
+      fi
+      echo "Rolling ${release_name} back to deployed revision ${deployed_revision}"
+      helm rollback "${release_name}" "${deployed_revision}" --namespace "${release_namespace}" \
+        --wait --timeout 10m
+      ;;
+  esac
+}
+
 aws eks update-kubeconfig --name "${EKS_CLUSTER_NAME}" --region "${AWS_REGION}" >/dev/null
 kubectl version --client
 kubectl --request-timeout=15s get --raw=/readyz >/dev/null
@@ -54,6 +88,7 @@ if [[ "${operation}" == "application" || "${operation}" == "all" ]]; then
   trap 'rm -f "${environment_values}"' EXIT
   scripts/render_environment_values.sh "${environment_values}"
 
+  recover_interrupted_release rag-platform rag-platform
   helm lint helm/rag-platform --values "${environment_values}" --values "${image_values}"
   helm upgrade --install rag-platform helm/rag-platform \
     --namespace rag-platform --create-namespace \
