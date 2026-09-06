@@ -1,16 +1,16 @@
 images:
   frontend:
     repository: 008971653023.dkr.ecr.ap-south-1.amazonaws.com/rag/frontend
-    digest: sha256:0269b1a6a5ce65b145a83775ea9c2a6a9073f9b0f8e43d85e36eb64190bd89ec
+    digest: sha256:9b103a08c8ca9b7d87ecf14ce5a92f2d26fb6c4e0f99d4bec35c8a09b43a84cf
   api:
     repository: 008971653023.dkr.ecr.ap-south-1.amazonaws.com/rag/api
-    digest: sha256:27ca4f06f0abd7e0bfb78e0a91adb67203b5b5f38adc94d6ed7cb177e712afe1
+    digest: sha256:ee4782eed54088a75c017658cf94cd40790c61b6c8b5baef2d4abb81183926a9
   ingestionWorker:
     repository: 008971653023.dkr.ecr.ap-south-1.amazonaws.com/rag/ingestion-worker
-    digest: sha256:3bb741cabacdd147613f3dfa0fb01e441577d33800b2587095ac53aa39007c95
+    digest: sha256:1d6531ad8e0f3714524b8d0c2a55ceb380c507c993e7dd4b032e06372fa2f55e
   driveSync:
     repository: 008971653023.dkr.ecr.ap-south-1.amazonaws.com/rag/drive-sync
-    digest: sha256:f40bd69e6809c6f3d5f43f028e278e29fc9d3a3b641a32e2d92142ae081b001f
+    digest: sha256:ceeea80f16527eff8bba6b9e6dd6534cb6c8ca00ff99f70d0299b84a48eab8c9
   ollamaRuntime:
     repository: 008971653023.dkr.ecr.ap-south-1.amazonaws.com/rag/ollama-runtime
-    digest: sha256:ee027d31c6c2de5b50e5f893d949c3d06cca471e1aa0170f6287fa9fbb5c7778
+    digest: sha256:90830d125c6f72f9d26755f5d9f9c553790e3eb129dc6bead4b927eabd8508d7
