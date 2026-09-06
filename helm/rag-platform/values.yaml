@@ -30,6 +30,9 @@ config:
   ollamaUrl: http://rag-platform-ollama-runtime:11434
   apiUrl: http://rag-platform-api:8080
   appUrl: https://rag.example.com
+  databaseHost: replace-me.cluster.local
+  databasePort: 5432
+  databaseName: ragplatform
   awsRegion: us-east-1
   ingestionQueueUrl: ""
   documentBucket: replace-me-rag-documents
@@ -134,3 +137,4 @@ admissionPolicy:
   certificateIdentity: "https://github.com/replace-me/production-rag-knowledge-platform/.github/workflows/supply-chain.yml@refs/heads/main"
   certificateIssuer: "https://token.actions.githubusercontent.com"
   rekorUrl: "https://rekor.sigstore.dev"
+  registryCredentialHelpers: [amazon]

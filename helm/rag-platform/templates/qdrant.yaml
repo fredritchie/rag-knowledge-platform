@@ -74,6 +74,8 @@ spec:
           env:
             - name: QDRANT__CLUSTER__ENABLED
               value: {{ gt (int .Values.qdrant.replicas) 1 | quote }}
+            - name: QDRANT__STORAGE__SNAPSHOTS_PATH
+              value: /qdrant/storage/snapshots
           ports:
             - {name: http, containerPort: 6333}
             - {name: peer, containerPort: 6335}

@@ -141,6 +141,49 @@ resource "aws_eks_pod_identity_association" "external_secrets" {
   role_arn        = aws_iam_role.external_secrets.arn
 }
 
+resource "aws_iam_role" "kyverno_registry" {
+  name               = "${local.name}-kyverno-registry"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json
+  tags               = local.tags
+}
+
+data "aws_iam_policy_document" "kyverno_registry" {
+  #checkov:skip=CKV_AWS_355: ECR GetAuthorizationToken does not support resource-level permissions.
+  #checkov:skip=CKV_AWS_356: The wildcard applies only to ECR's account-level authorization-token action.
+  statement {
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+  statement {
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
+    ]
+    resources = values(module.ecr.repository_arns)
+  }
+}
+
+resource "aws_iam_role_policy" "kyverno_registry" {
+  name   = "verify-signed-ecr-images"
+  role   = aws_iam_role.kyverno_registry.id
+  policy = data.aws_iam_policy_document.kyverno_registry.json
+}
+
+resource "aws_eks_pod_identity_association" "kyverno_admission" {
+  cluster_name    = module.kubernetes.cluster_name
+  namespace       = "kyverno"
+  service_account = "kyverno-admission-controller"
+  role_arn        = aws_iam_role.kyverno_registry.arn
+}
+
+resource "aws_eks_pod_identity_association" "kyverno_background" {
+  cluster_name    = module.kubernetes.cluster_name
+  namespace       = "kyverno"
+  service_account = "kyverno-background-controller"
+  role_arn        = aws_iam_role.kyverno_registry.arn
+}
+
 resource "aws_iam_role" "keda" {
   name               = "${local.name}-keda"
   assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json
