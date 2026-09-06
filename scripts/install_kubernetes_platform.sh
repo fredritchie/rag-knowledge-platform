@@ -62,7 +62,12 @@ helm upgrade --install metrics-server metrics-server/metrics-server \
 helm upgrade --install keda kedacore/keda --version "${KEDA_VERSION}" \
   --namespace keda --create-namespace --values "${platform_dir}/keda-values.yaml" --wait --timeout 15m
 helm upgrade --install kyverno kyverno/kyverno --version "${KYVERNO_VERSION}" \
-  --namespace kyverno --create-namespace --values "${platform_dir}/kyverno-values.yaml" --wait --timeout 15m
+  --namespace kyverno --create-namespace --values "${platform_dir}/kyverno-values.yaml" \
+  --set-string 'global.extraEnvVars[0].name=AWS_REGION' \
+  --set-string "global.extraEnvVars[0].value=${AWS_REGION}" \
+  --set-string 'global.extraEnvVars[1].name=AWS_DEFAULT_REGION' \
+  --set-string "global.extraEnvVars[1].value=${AWS_REGION}" \
+  --wait --timeout 15m
 helm upgrade --install nvidia-device-plugin nvdp/nvidia-device-plugin \
   --version "${NVIDIA_DEVICE_PLUGIN_VERSION}" --namespace kube-system \
   --values "${platform_dir}/nvidia-device-plugin-values.yaml" --wait --timeout 15m

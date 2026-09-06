@@ -3,7 +3,7 @@ set -euo pipefail
 
 output_path="${1:?Usage: render_environment_values.sh OUTPUT_PATH}"
 required=(
-  AWS_REGION APPLICATION_URL DOCUMENT_BUCKET DOCUMENT_KMS_KEY_ARN INGESTION_QUEUE_URL
+  AWS_REGION DEPLOY_ENVIRONMENT APPLICATION_URL DOCUMENT_BUCKET DOCUMENT_KMS_KEY_ARN INGESTION_QUEUE_URL
   AURORA_ENDPOINT AURORA_SECRET_ARN RUNTIME_SECRET_ARN COGNITO_USER_POOL_ID
   COGNITO_CLIENT_ID COGNITO_AUTHORIZE_URL COGNITO_TOKEN_URL COGNITO_LOGOUT_URL
   ALB_TARGET_GROUP_ARN PUBLIC_SUBNET_CIDRS_JSON PRIVATE_SUBNET_CIDRS_JSON
@@ -18,6 +18,7 @@ done
 
 jq -n \
   --arg region "${AWS_REGION}" \
+  --arg environment "${DEPLOY_ENVIRONMENT}" \
   --arg app_url "${APPLICATION_URL}" \
   --arg queue_url "${INGESTION_QUEUE_URL}" \
   --arg bucket "${DOCUMENT_BUCKET}" \
@@ -39,6 +40,9 @@ jq -n \
   '{
     config: {
       awsRegion: $region,
+      databaseHost: $database_host,
+      databasePort: 5432,
+      databaseName: "ragplatform",
       ingestionQueueUrl: $queue_url,
       appUrl: $app_url,
       documentBucket: $bucket,
@@ -76,6 +80,7 @@ jq -n \
     keda: {enabled: true},
     targetGroupBinding: {enabled: true, targetGroupARN: $target_group},
     admissionPolicy: {enabled: true, certificateIdentity: $certificate_identity},
+    qdrant: {replicas: (if $environment == "dev" then 1 else 3 end)},
     images: {
       qdrant: {repository: "qdrant/qdrant", digest: $qdrant_digest}
     }
