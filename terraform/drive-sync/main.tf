@@ -22,6 +22,10 @@ resource "aws_kms_key" "google_oauth" {
   enable_key_rotation     = true
   policy                  = data.aws_iam_policy_document.google_oauth_key.json
   tags                    = var.tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_kms_alias" "google_oauth" {
@@ -35,6 +39,10 @@ resource "aws_secretsmanager_secret" "google_oauth" {
   kms_key_id              = aws_kms_key.google_oauth.arn
   recovery_window_in_days = var.recovery_window_in_days
   tags                    = var.tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 module "drive_sync" {
