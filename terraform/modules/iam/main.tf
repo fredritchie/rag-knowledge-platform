@@ -240,6 +240,10 @@ resource "aws_kms_key" "runtime" {
   enable_key_rotation     = true
   policy                  = data.aws_iam_policy_document.runtime_key.json
   tags                    = var.tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_secretsmanager_secret" "runtime" {
@@ -249,6 +253,10 @@ resource "aws_secretsmanager_secret" "runtime" {
   recovery_window_in_days = 30
   kms_key_id              = aws_kms_key.runtime.arn
   tags                    = var.tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_secretsmanager_secret" "grafana_admin" {
@@ -259,4 +267,8 @@ resource "aws_secretsmanager_secret" "grafana_admin" {
   recovery_window_in_days = 30
   kms_key_id              = aws_kms_key.runtime.arn
   tags                    = var.tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
