@@ -44,7 +44,9 @@ jobs:
           ruff check src tests scripts/*.py
           npm --prefix apps/web run lint
       - name: Unit tests
-        run: pytest -m 'not integration and not slow' --basetemp /tmp/rag-unit-tests
+        run: |
+          pytest -m 'not integration and not slow' --basetemp /tmp/rag-unit-tests
+          npm --prefix apps/web test
       - name: Integration tests
         run: pytest -m integration --basetemp /tmp/rag-integration-tests
 
