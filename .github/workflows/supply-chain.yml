@@ -3,6 +3,12 @@ name: container-supply-chain
 on:
   push:
     branches: [main]
+    # A GitOps promotion PR changes only immutable image references. Do not
+    # rebuild the same application commit and create another promotion PR.
+    # Mixed commits still trigger because paths-ignore suppresses only when
+    # every changed path matches this pattern.
+    paths-ignore:
+      - 'gitops/environments/**'
 
 permissions:
   contents: read
