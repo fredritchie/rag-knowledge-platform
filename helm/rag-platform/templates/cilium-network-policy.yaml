@@ -1,4 +1,33 @@
 {{- if and .Values.networkPolicy.enabled .Values.networkPolicy.ciliumFqdnEgress.enabled }}
+# Observe cluster DNS responses so toFQDNs rules learn their allowed IPs.
+# This permits DNS lookups only; HTTPS destinations remain separately restricted.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: application-dns-visibility
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: rag-platform
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [frontend, api, ingestion-worker, drive-sync, migrate]
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
