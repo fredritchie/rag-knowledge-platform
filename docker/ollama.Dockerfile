@@ -12,7 +12,10 @@ ENV HOME=/home/ollama \
     OLLAMA_HOST=0.0.0.0:11434 \
     OLLAMA_MODELS=/models
 USER root
-RUN mkdir -p /home/ollama /models \
+RUN apt-get update \
+    && apt-get install --only-upgrade -y --no-install-recommends libssl3t64 \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /home/ollama /models \
     && chown -R 10001:10001 /home/ollama /models
 USER 10001:10001
 EXPOSE 11434

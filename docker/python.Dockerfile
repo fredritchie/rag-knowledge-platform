@@ -34,7 +34,10 @@ ENV PATH=/opt/venv/bin:$PATH \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     RAG_CONFIG=/app/config/rag.yaml \
     RAG_DATA_DIR=/var/lib/rag
-RUN groupadd --gid 10001 rag \
+RUN apt-get update \
+    && apt-get install --only-upgrade -y --no-install-recommends libpcre2-8-0 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 rag \
     && useradd --uid 10001 --gid rag --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin rag \
     && python -m venv /opt/venv \
     && mkdir -p /app /var/lib/rag \
