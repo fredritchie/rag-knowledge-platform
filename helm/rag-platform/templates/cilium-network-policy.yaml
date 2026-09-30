@@ -60,4 +60,30 @@ spec:
       toPorts:
         - ports: [{port: "5432", protocol: TCP}]
 {{- end }}
+---
+# Cilium assigns the node-local Pod Identity endpoint the host identity, so the
+# Kubernetes NetworkPolicy ipBlock allow rule alone does not grant access.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: application-to-pod-identity-agent
+  namespace: {{ .Release.Namespace }}
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: rag-platform
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - api
+          - ingestion-worker
+          - drive-sync
+  egress:
+    - toEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
 {{- end }}
