@@ -29,6 +29,9 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     PORT=3000
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install --only-upgrade -y --no-install-recommends libpcre2-8-0 \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
