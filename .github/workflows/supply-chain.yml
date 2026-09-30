@@ -3,6 +3,10 @@ name: container-supply-chain
 on:
   push:
     branches: [main]
+    # Promotion PRs update deployment image references, not app source. Skip
+    # a redundant rebuild when a push changes only environment image manifests.
+    paths-ignore:
+      - 'gitops/environments/**'
 
 permissions:
   contents: read
