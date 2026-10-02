@@ -90,13 +90,6 @@ if [[ "${operation}" == "application" || "${operation}" == "all" ]]; then
 
   recover_interrupted_release rag-platform rag-platform
   helm lint helm/rag-platform --values "${environment_values}" --values "${image_values}"
-  helm upgrade --install rag-platform helm/rag-platform \
-    --namespace rag-platform --create-namespace \
-    --values "${environment_values}" \
-    --values "${image_values}" \
-    --atomic --wait --timeout 30m --history-max 10
-
-  kubectl --namespace rag-platform rollout status deployment/rag-platform-frontend --timeout=10m
-  kubectl --namespace rag-platform rollout status deployment/rag-platform-api --timeout=10m
+  bash scripts/deploy_application_release.sh "${environment_values}" "${image_values}"
   kubectl --namespace rag-platform get deployments,statefulsets,pods,externalsecrets,targetgroupbindings
 fi

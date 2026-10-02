@@ -3,6 +3,8 @@ kind: Job
 metadata:
   name: {{ include "rag-platform.fullname" . }}-migrate
   annotations:
+    # Fresh installs bootstrap with application replicas=0 before this hook;
+    # pre-upgrade uses the prerequisites already owned by the existing release.
     helm.sh/hook: post-install,pre-upgrade
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 spec:
