@@ -14,7 +14,7 @@ function compile(path) {
 }
 const origin = "https://fred-rag-dev.duckdns.org";
 
-function handler(fetch, appUrl = origin, route = "callback") {
+function handler(fetch, appUrl = origin, route = "callback", method = route === "logout" ? "POST" : "GET") {
   const exports = {};
   const process = { env: {
     APP_URL: appUrl, NODE_ENV: "production",
@@ -30,7 +30,7 @@ function handler(fetch, appUrl = origin, route = "callback") {
     exports, require: (name) => name === "../../../lib/app-url" ? helper : nativeRequire(name),
     URL, URLSearchParams, Buffer, fetch, process,
   });
-  return exports.GET;
+  return exports[method];
 }
 
 function callback(query = "?code=test-code&state=test-state") {
@@ -85,10 +85,40 @@ test("login uses runtime origin and retains PKCE and state cookies", async () =>
 });
 
 test("logout uses runtime origin rather than the legacy build value", async () => {
-  const response = await handler(undefined, `${origin}/`, "logout")();
+  const request = new NextRequest(`${origin}/auth/logout`, { method: "POST", headers: { origin } });
+  const response = await handler(undefined, `${origin}/`, "logout")(request);
+  assert.equal(response.status, 303);
   const location = new URL(response.headers.get("location"));
   assert.equal(location.searchParams.get("logout_uri"), `${origin}/login`);
   assert.equal(response.cookies.get("id_token").value, "");
+  assert.equal(response.cookies.get("active_tenant_id").value, "");
+});
+
+test("logout GET and prefetch never delete cookies or redirect", async () => {
+  for (const headers of [{}, { "next-router-prefetch": "1", rsc: "1" }]) {
+    const request = new NextRequest(`${origin}/auth/logout`, { headers });
+    const response = await handler(undefined, origin, "logout", "GET")(request);
+    assert.equal(response.status, 405);
+    assert.equal(response.headers.get("allow"), "POST");
+    assert.equal(response.headers.get("set-cookie"), null);
+    assert.equal(response.headers.get("location"), null);
+  }
+});
+
+test("logout rejects cross-origin and missing-origin POSTs without clearing cookies", async () => {
+  for (const headers of [{}, { origin: "https://untrusted.example" }, { origin: "null" }]) {
+    const request = new NextRequest(`${origin}/auth/logout`, { method: "POST", headers });
+    const response = await handler(undefined, origin, "logout")(request);
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get("set-cookie"), null);
+    assert.equal(response.headers.get("location"), null);
+  }
+});
+
+test("sidebar logout is an explicit POST form, not a prefetchable link", () => {
+  const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  assert.match(layout, /<form action="\/auth\/logout" method="post">/);
+  assert.doesNotMatch(layout, /href="\/auth\/logout"/);
 });
 
 test("all auth routes reject missing or unsafe origins", async () => {
