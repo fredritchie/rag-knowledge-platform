@@ -145,11 +145,9 @@ services:
       context: .
       dockerfile: docker/frontend.Dockerfile
       target: runtime
-      args:
-        NEXT_PUBLIC_APP_URL: http://localhost:3000
     environment:
       RAG_API_URL: http://api:8080
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      APP_URL: http://localhost:3000
     read_only: true
     user: "1000:1000"
     cap_drop: [ALL]

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
+import { appUrl } from "../../../lib/app-url";
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name];
@@ -11,13 +12,13 @@ export async function GET() {
   const state = randomBytes(32).toString("base64url");
   const verifier = randomBytes(64).toString("base64url");
   const challenge = createHash("sha256").update(verifier).digest("base64url");
-  const appUrl = requiredEnvironment("NEXT_PUBLIC_APP_URL");
+  const publicUrl = appUrl();
   const authorizeUrl = new URL(requiredEnvironment("COGNITO_AUTHORIZE_URL"));
   authorizeUrl.search = new URLSearchParams({
     client_id: requiredEnvironment("COGNITO_CLIENT_ID"),
     response_type: "code",
     scope: "openid email profile",
-    redirect_uri: `${appUrl}/auth/callback`,
+    redirect_uri: new URL("/auth/callback", publicUrl).toString(),
     state,
     code_challenge: challenge,
     code_challenge_method: "S256",

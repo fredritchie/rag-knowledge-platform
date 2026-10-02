@@ -78,7 +78,7 @@ The browser configuration stays in `apps/web/.env.local`:
 
 ```dotenv
 RAG_API_URL=http://127.0.0.1:8080
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+APP_URL=http://localhost:3000
 NEXT_PUBLIC_COGNITO_AUTHORIZE_URL=https://<hosted-ui-domain>.auth.<region>.amazoncognito.com/oauth2/authorize
 COGNITO_TOKEN_URL=https://<hosted-ui-domain>.auth.<region>.amazoncognito.com/oauth2/token
 NEXT_PUBLIC_COGNITO_LOGOUT_URL=https://<hosted-ui-domain>.auth.<region>.amazoncognito.com/logout

@@ -57,6 +57,15 @@ root returns a 307 redirect, while the target-group health matcher requires HTTP
 
 ## Verification
 
+The frontend reads `APP_URL` at runtime from Helm's `config.appUrl` (for example,
+`https://fred-rag-dev.duckdns.org`). Login, callback and logout share this origin.
+Do not supply a `NEXT_PUBLIC_APP_URL` build argument: public environment variables
+are frozen during the Next.js build. Changing this code requires a new frontend
+image and its reviewed GitOps digest as well as the updated Helm chart. Deploy
+both together with `operation=application`; no Terraform recreation is required.
+After deployment, start a fresh login from the public application URL. Expired or
+missing OAuth cookies must continue to fail state/PKCE validation.
+
 The deployment waits for frontend, API, ingestion-worker, and Drive-sync rollouts, then records deployments, StatefulSets,
 pods, ExternalSecrets, and TargetGroupBindings in the private CodeBuild log. Also verify:
 
