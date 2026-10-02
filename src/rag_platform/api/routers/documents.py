@@ -95,6 +95,43 @@ async def authorize_upload(
         )
     )
     if duplicate:
+        document = await _tenant_document(session, context.tenant_id, duplicate.document_id)
+        job = await session.scalar(
+            select(IngestionJob).where(IngestionJob.document_version_id == duplicate.id)
+        )
+        # Reissue failed browser uploads only while still awaiting bytes.
+        # Never overwrite a completed version or another user's pending upload.
+        if (
+            duplicate.status == "PENDING_UPLOAD"
+            and document.deleted_at is None
+            and (document.owner_id == context.user_id or context.role == "ADMIN")
+            and job is not None
+            and job.status == "WAITING_UPLOAD"
+            and duplicate.file_size_bytes == body.file_size_bytes
+            and document.content_type == body.content_type
+            and (body.document_id is None or body.document_id == document.id)
+        ):
+            upload = request.app.state.storage.create_upload(
+                duplicate.storage_key, document.content_type
+            )
+            add_audit_event(
+                session,
+                request,
+                context,
+                action="document.upload_reauthorized",
+                resource_type="document_version",
+                resource_id=duplicate.id,
+            )
+            return UploadAuthorizationResponse(
+                document_id=document.id,
+                document_version_id=duplicate.id,
+                version_number=duplicate.version_number,
+                ingestion_job_id=job.id,
+                storage_key=duplicate.storage_key,
+                upload_url=upload["url"],
+                upload_fields=upload["fields"],
+                expires_in_seconds=request.app.state.settings.storage.upload_expiry_seconds,
+            )
         raise ConflictError(
             "DUPLICATE_DOCUMENT",
             "This exact document content already exists in the tenant",

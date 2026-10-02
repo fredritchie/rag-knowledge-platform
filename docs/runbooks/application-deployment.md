@@ -80,6 +80,22 @@ pods, ExternalSecrets, and TargetGroupBindings in the private CodeBuild log. Als
 
 ## Rollback
 
+### Browser upload rollout
+
+Browser uploads require the document bucket's CORS rule as well as working API
+authorization. The documents S3 module permits POST only from the environment's
+`application_url`; telemetry buckets have no upload CORS rule and all buckets
+retain their public-access blocks.
+
+For the upload recovery change, merge the code, run and review a fresh Terraform
+plan, then apply it to install CORS. Build and promote the new API and frontend
+image digests and deploy `operation=application`. These steps are both required.
+Re-select the same PDF to retry a `PENDING_UPLOAD` record: the owner or a tenant
+admin can obtain a fresh presigned form while its ingestion job is still
+`WAITING_UPLOAD`. Completed versions remain duplicate conflicts; records are not
+deleted or recreated. If storage succeeded but confirmation failed, check
+Ingestion first because the S3 event may already have started processing.
+
 Application upgrades use `--atomic`, so a failed rollout automatically returns to the previous Helm
 revision. For an explicit rollback, revert the GitOps image PR and dispatch `application` again.
 Infrastructure drift is reported but never automatically repaired.

@@ -32,10 +32,11 @@ module "vpc" {
 }
 
 module "documents" {
-  source        = "../s3"
-  name          = local.bucket_name
-  force_destroy = !var.deletion_protection
-  tags          = local.tags
+  source         = "../s3"
+  name           = local.bucket_name
+  force_destroy  = !var.deletion_protection
+  tags           = local.tags
+  upload_origins = [module.edge.application_url]
 }
 
 module "telemetry" {

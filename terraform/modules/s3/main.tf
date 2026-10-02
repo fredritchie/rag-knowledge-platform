@@ -41,6 +41,17 @@ resource "aws_s3_bucket_ownership_controls" "this" {
   rule { object_ownership = "BucketOwnerEnforced" }
 }
 
+resource "aws_s3_bucket_cors_configuration" "uploads" {
+  count  = length(var.upload_origins) > 0 ? 1 : 0
+  bucket = aws_s3_bucket.this.id
+  cors_rule {
+    allowed_origins = var.upload_origins
+    allowed_methods = ["POST"]
+    allowed_headers = ["Content-Type"]
+    max_age_seconds = 300
+  }
+}
+
 resource "aws_s3_bucket_public_access_block" "this" {
   bucket                  = aws_s3_bucket.this.id
   block_public_acls       = true

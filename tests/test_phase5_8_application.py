@@ -267,6 +267,54 @@ def test_upload_update_keeps_old_version_active_until_worker_success(tmp_path: P
         assert new_status == "PENDING_UPLOAD"
 
 
+def test_pending_upload_retry_reuses_records_and_rejects_completed(tmp_path: Path) -> None:
+    app, _ = _application(tmp_path, "EDITOR")
+    payload = {
+        "filename": "retry.pdf",
+        "content_type": "application/pdf",
+        "file_size_bytes": 100,
+        "checksum_sha256": "c" * 64,
+    }
+    with TestClient(app) as client:
+        first = client.post("/api/v1/documents/uploads", json=payload)
+        assert first.status_code == 201
+        retry = client.post("/api/v1/documents/uploads", json=payload)
+        assert retry.status_code == 201
+        for field in ("document_id", "document_version_id", "ingestion_job_id", "storage_key"):
+            assert retry.json()[field] == first.json()[field]
+        mismatch = client.post(
+            "/api/v1/documents/uploads", json={**payload, "file_size_bytes": 101}
+        )
+        assert mismatch.status_code == 409
+        assert client.get("/api/v1/documents").json()["page"]["total"] == 1
+        created = first.json()
+        assert (
+            client.post(
+                f"/api/v1/documents/{created['document_id']}/upload-complete",
+                json={"document_version_id": created["document_version_id"]},
+            ).status_code
+            == 202
+        )
+        assert client.post("/api/v1/documents/uploads", json=payload).status_code == 409
+
+
+def test_pending_upload_retry_rejects_other_owner_and_viewer(tmp_path: Path) -> None:
+    app, _ = _application(tmp_path, "EDITOR")
+    payload = {
+        "filename": "retry.pdf",
+        "content_type": "application/pdf",
+        "file_size_bytes": 100,
+        "checksum_sha256": "d" * 64,
+    }
+    with TestClient(app) as client:
+        assert client.post("/api/v1/documents/uploads", json=payload).status_code == 201
+        other = _context("EDITOR").model_copy(update={"user_id": "usr_other"})
+        app.dependency_overrides[request_context] = lambda: other
+        assert client.post("/api/v1/documents/uploads", json=payload).status_code == 409
+        app.dependency_overrides[request_context] = lambda: _context("VIEWER")
+        assert client.post("/api/v1/documents/uploads", json=payload).status_code == 403
+
+
 def test_worker_atomically_activates_successful_replacement(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     database = Database(settings.database)
