@@ -23,7 +23,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <aside className="sidebar">
           <div className="brand"><span className="brandMark">K</span><span>Knowledge</span></div>
           <nav>{links.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}</nav>
-          <div className="sideFoot"><span className="healthDot" /> Platform ready<br /><Link href="/auth/logout">Sign out</Link></div>
+          <div className="sideFoot"><span className="healthDot" /> Platform ready<br />
+            <form action="/auth/logout" method="post">
+              <button type="submit">Sign out</button>
+            </form>
+          </div>
         </aside>
         <main className="shell">{children}</main>
       </body>
