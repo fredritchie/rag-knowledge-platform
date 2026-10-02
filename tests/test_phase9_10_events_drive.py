@@ -160,6 +160,108 @@ def test_eventbridge_parser_preserves_idempotency_fields() -> None:
     assert event.object_key.endswith("policy.pdf")
 
 
+def _native_record(key="tenants/ten_a/documents/doc_a/policy.pdf", name="ObjectCreated:Post"):
+    return {
+        "eventSource": "aws:s3",
+        "eventName": name,
+        "s3": {
+            "bucket": {"name": "canonical-bucket"},
+            "object": {
+                "key": key,
+                "versionId": "s3-version-1",
+                "sequencer": "006ABC",
+            },
+        },
+    }
+
+
+def test_native_parser_decodes_keys_and_preserves_identity():
+    body = json.dumps({"Records": [_native_record("tenants/a+file%2Bname.pdf")]})
+    event = StorageEvent.from_message(body)[0]
+    assert event.object_key == "tenants/a file+name.pdf"
+    assert event.object_version == "s3-version-1"
+    assert event.event_type == "Object Created"
+    assert event.event_id == StorageEvent.from_message(body)[0].event_id
+    deleted = StorageEvent.from_message(
+        json.dumps(
+            {
+                "Records": [
+                    _native_record(name="ObjectRemoved:DeleteMarkerCreated"),
+                ]
+            }
+        )
+    )[0]
+    assert deleted.event_type == "Object Deleted"
+
+
+def test_native_notification_duplicate_and_test_event(tmp_path):
+    settings = _settings(tmp_path)
+    database = Database(settings.database)
+    asyncio.run(_seed(database))
+    queue, processor = FakeQueue(), CountingProcessor()
+    worker = S3EventWorker(settings, database, queue, processor)
+    body = json.dumps({"Records": [_native_record(), _native_record()]})
+    assert asyncio.run(worker.process_message(QueueMessage("m1", "h1", body, 1)))
+    assert asyncio.run(worker.process_message(QueueMessage("m2", "h2", body, 2)))
+    assert processor.calls == 1
+    test_body = json.dumps(
+        {"Service": "Amazon S3", "Event": "s3:TestEvent", "Bucket": "canonical-bucket"}
+    )
+    assert asyncio.run(worker.process_message(QueueMessage("m3", "h3", test_body, 1)))
+    assert queue.acknowledged == ["h1", "h2", "h3"]
+    assert processor.calls == 1
+    asyncio.run(database.dispose())
+
+
+def test_partial_batch_is_not_acknowledged_and_success_is_not_reprocessed(tmp_path):
+    settings = _settings(tmp_path)
+    database = Database(settings.database)
+    asyncio.run(_seed(database))
+    queue, processor = FakeQueue(), CountingProcessor()
+    worker = S3EventWorker(settings, database, queue, processor)
+    body = json.dumps({"Records": [_native_record(), _native_record("tenants/missing.pdf")]})
+    for attempt in [1, 2]:
+        assert not asyncio.run(worker.process_message(QueueMessage("m1", "h1", body, attempt)))
+    assert processor.calls == 1
+    assert queue.acknowledged == []
+    asyncio.run(database.dispose())
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "not-json",
+        "[]",
+        '{"Records": []}',
+        json.dumps({"Records": [{"eventSource": "other"}]}),
+        json.dumps({"Service": "Amazon S3", "Event": "s3:TestEvent", "Bucket": "other"}),
+        json.dumps(
+            {
+                "Records": [
+                    {
+                        **_native_record(),
+                        "s3": {
+                            "bucket": {"name": "other"},
+                            "object": {"key": "tenants/a", "sequencer": "1"},
+                        },
+                    }
+                ]
+            }
+        ),
+        json.dumps({"Records": [_native_record("outside/prefix.pdf")]}),
+    ],
+)
+def test_invalid_native_notifications_are_not_acknowledged(tmp_path, body):
+    settings = _settings(tmp_path)
+    database = Database(settings.database)
+    queue, processor = FakeQueue(), CountingProcessor()
+    worker = S3EventWorker(settings, database, queue, processor)
+    assert not asyncio.run(worker.process_message(QueueMessage("m1", "h1", body, 1)))
+    assert queue.acknowledged == []
+    assert processor.calls == 0
+    asyncio.run(database.dispose())
+
+
 def test_duplicate_s3_event_is_acknowledged_without_reprocessing(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     database = Database(settings.database)

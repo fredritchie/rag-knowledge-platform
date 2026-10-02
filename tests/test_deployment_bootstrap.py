@@ -119,6 +119,12 @@ if 'replicaCount.frontend=0' in sys.argv and os.environ['FAIL_BOOTSTRAP'] == '1'
         deployments = [doc for doc in docs if "kind: Deployment\n" in doc]
         self.assertEqual(len(deployments), 4)
         self.assertTrue(all("replicas: 0" in doc for doc in deployments))
+        for deployment in deployments:
+            if (
+                "name: rag-platform-api\n" in deployment
+                or "name: rag-platform-ingestion-worker\n" in deployment
+            ):
+                self.assertIn('name: RAG__EVENT_INGESTION__ENABLED, value: "true"', deployment)
         self.assertNotIn("kind: ScaledObject\n", result.stdout)
         for kind in ("Job", "ServiceAccount", "ExternalSecret", "NetworkPolicy"):
             self.assertIn(f"kind: {kind}\n", result.stdout)

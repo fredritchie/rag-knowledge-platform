@@ -46,6 +46,48 @@ class StorageEvent:
     event_time: str | None
 
     @classmethod
+    def from_message(cls, body: str) -> list[StorageEvent]:
+        payload = json.loads(body)
+        if not isinstance(payload, dict):
+            raise InvalidStorageEvent("Expected an S3 notification object")
+        if "Records" not in payload:
+            return [cls.from_eventbridge(payload)]
+        records = payload["Records"]
+        if not isinstance(records, list) or not records:
+            raise InvalidStorageEvent("S3 notification has no records")
+        events = []
+        for record in records:
+            if not isinstance(record, dict) or record.get("eventSource") != "aws:s3":
+                raise InvalidStorageEvent("Invalid S3 record source")
+            name = record.get("eventName", "")
+            if name.startswith("ObjectCreated:"):
+                event_type = "Object Created"
+            elif name.startswith("ObjectRemoved:"):
+                event_type = "Object Deleted"
+            else:
+                raise InvalidStorageEvent("Unsupported S3 notification type")
+            s3 = record.get("s3") or {}
+            bucket = (s3.get("bucket") or {}).get("name")
+            obj = s3.get("object") or {}
+            key, sequencer = obj.get("key"), obj.get("sequencer")
+            if not all(isinstance(value, str) and value for value in (bucket, key, sequencer)):
+                raise InvalidStorageEvent("S3 record lacks bucket, key or sequencer")
+            key = unquote_plus(key)
+            version = str(obj.get("versionId") or "unversioned")
+            identity = json.dumps([bucket, key, version, name, sequencer])
+            events.append(
+                cls(
+                    event_id=hashlib.sha256(identity.encode()).hexdigest(),
+                    event_type=event_type,
+                    bucket=bucket,
+                    object_key=key,
+                    object_version=version,
+                    event_time=record.get("eventTime"),
+                )
+            )
+        return events
+
+    @classmethod
     def from_eventbridge(cls, body: str | dict[str, Any]) -> StorageEvent:
         payload = json.loads(body) if isinstance(body, str) else body
         detail = payload.get("detail") or {}
@@ -329,10 +371,29 @@ class S3EventWorker:
 
     async def process_message(self, message: QueueMessage) -> bool:
         try:
-            event = StorageEvent.from_eventbridge(message.body)
+            payload = json.loads(message.body)
+            if isinstance(payload, dict) and payload.get("Event") == "s3:TestEvent":
+                if (
+                    payload.get("Service") != "Amazon S3"
+                    or payload.get("Bucket") != self.settings.storage.bucket
+                ):
+                    raise InvalidStorageEvent("Invalid S3 test notification")
+            else:
+                # Parse the entire batch first; acknowledge only after every record succeeds.
+                for event in StorageEvent.from_message(message.body):
+                    if not await self._process_event(message, event):
+                        return False
+            await self.queue.acknowledge(message.receipt_handle)
+            return True
+        except Exception as exc:
+            APPLICATION_ERRORS.labels(service_var.get(), "s3_event", type(exc).__name__).inc()
+            logger.exception("S3 notification failed", extra={"component": "s3_event"})
+            return False
+
+    async def _process_event(self, message: QueueMessage, event: StorageEvent) -> bool:
+        try:
             receipt_id, status = await self._register(message, event)
             if status == "PROCESSED":
-                await self.queue.acknowledge(message.receipt_handle)
                 return True
             async with self.database.sessions() as session:
                 receipt = await session.get(IngestionReceipt, receipt_id)
@@ -368,7 +429,6 @@ class S3EventWorker:
                 receipt.processed_at = datetime.now(UTC)
                 receipt.last_error = None
                 await session.commit()
-            await self.queue.acknowledge(message.receipt_handle)
             return True
         except Exception as exc:
             APPLICATION_ERRORS.labels(service_var.get(), "s3_event", type(exc).__name__).inc()

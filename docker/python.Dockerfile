@@ -23,7 +23,9 @@ RUN python -m pip install --no-cache-dir '.[dev]' \
     && pytest -m 'not slow'
 
 FROM test AS build
-RUN python -m pip wheel --wheel-dir /wheels .
+RUN python -m pip wheel --wheel-dir /wheels '.[ml]'
+RUN python -m pip install --no-index --find-links=/wheels 'production-rag-knowledge-platform[ml]' \
+    && HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 python -m pytest tests/test_ml_compatibility.py -q
 
 FROM python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS runtime
 ARG APP_VERSION=dev
@@ -47,7 +49,8 @@ RUN apt-get update \
     && mkdir -p /app /var/lib/rag \
     && chown -R rag:rag /app /var/lib/rag /opt/venv
 COPY --from=build --chown=rag:rag /wheels /wheels
-RUN pip install --no-cache-dir --no-index --find-links=/wheels production-rag-knowledge-platform \
+RUN pip install --no-cache-dir --no-index --find-links=/wheels 'production-rag-knowledge-platform[ml]' \
+    && python -c "from sentence_transformers import SentenceTransformer" \
     && rm -rf /wheels
 WORKDIR /app
 COPY --from=source --chown=rag:rag /src/alembic.ini ./alembic.ini

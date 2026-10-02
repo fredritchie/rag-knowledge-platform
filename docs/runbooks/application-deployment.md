@@ -78,7 +78,26 @@ pods, ExternalSecrets, and TargetGroupBindings in the private CodeBuild log. Als
 7. Network policies deny frontend access to Aurora, Qdrant, and Ollama.
 8. Prometheus targets are healthy and Grafana dashboards receive metrics, logs, and traces.
 
-## Rollback
+## Upload and ingestion operations
+
+### Native S3 event ingestion
+
+The bucket sends native S3 `Records` notifications directly to SQS. The worker
+accepts these and the legacy EventBridge envelope, acknowledges valid S3 test
+notifications without ingestion, and only acknowledges a batch after all records
+succeed. Previously processed receipts are skipped on redelivery. The API must
+also enable event ingestion so upload completion waits for the S3 event.
+
+The shared Python image installs the existing `ml` extra and checks the
+SentenceTransformers import during its build. Model download/cache access and
+embedding execution must still be verified after deployment; passing event
+parser tests alone does not prove end-to-end indexing.
+
+Deploy the newly built API and worker image digests with the updated Helm chart.
+Messages still on the source queue will retry automatically. Inspect DLQ counts
+and arrange an explicit, reviewed redrive if messages have already exhausted
+their receive limit. Do not purge queues, reset database jobs, or delete documents
+to recover from this format mismatch.
 
 ### Browser upload rollout
 
@@ -95,6 +114,8 @@ admin can obtain a fresh presigned form while its ingestion job is still
 `WAITING_UPLOAD`. Completed versions remain duplicate conflicts; records are not
 deleted or recreated. If storage succeeded but confirmation failed, check
 Ingestion first because the S3 event may already have started processing.
+
+## Rollback
 
 Application upgrades use `--atomic`, so a failed rollout automatically returns to the previous Helm
 revision. For an explicit rollback, revert the GitOps image PR and dispatch `application` again.
