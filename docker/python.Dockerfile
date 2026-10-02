@@ -14,6 +14,10 @@ COPY prompts ./prompts
 COPY helm/observability/dashboards ./helm/observability/dashboards
 
 FROM source AS test
+COPY scripts/deploy_application_release.sh ./scripts/deploy_application_release.sh
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends jq \
+    && rm -rf /var/lib/apt/lists/*
 RUN python -m pip install --no-cache-dir '.[dev]' \
     && ruff check src tests \
     && pytest -m 'not slow'

@@ -15,6 +15,8 @@ SCRIPT = ROOT / "scripts/deploy_application_release.sh"
 
 class DeploymentBootstrapTests(unittest.TestCase):
     def run_deployment(self, status: str, fail_bootstrap: bool = False):
+        self.assertTrue(SCRIPT.is_file(), f"Missing deployment script: {SCRIPT}")
+        self.assertIsNotNone(shutil.which("jq"), "Deployment tests require jq on PATH")
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             mock = f"""#!{sys.executable}
@@ -52,6 +54,11 @@ if 'replicaCount.frontend=0' in sys.argv and os.environ['FAIL_BOOTSTRAP'] == '1'
                 capture_output=True,
                 text=True,
                 check=False,
+            )
+            self.assertTrue(
+                log.exists(),
+                f"Deployment exited before invoking Helm (exit {result.returncode}): "
+                f"{result.stderr}",
             )
             return result, [json.loads(line) for line in log.read_text().splitlines()]
 
