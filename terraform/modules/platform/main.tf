@@ -89,6 +89,18 @@ module "iam" {
   tags                       = local.tags
 }
 
+# Managed node groups use the EKS-created primary group, not the additional
+# control-plane group. ALB IP targets are pod IPs on those node interfaces.
+resource "aws_vpc_security_group_ingress_rule" "alb_to_frontend" {
+  security_group_id            = module.kubernetes.cluster_primary_security_group_id
+  referenced_security_group_id = module.vpc.alb_security_group_id
+  description                  = "ALB to frontend pod IP targets"
+  ip_protocol                  = "tcp"
+  from_port                    = 3000
+  to_port                      = 3000
+  tags                         = local.tags
+}
+
 moved {
   from = module.deployment.aws_security_group.codebuild
   to   = aws_security_group.deployment
