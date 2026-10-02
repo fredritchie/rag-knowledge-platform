@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { appUrl } from "../../../lib/app-url";
 
 export async function GET(request: NextRequest) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (!appUrl) throw new Error("NEXT_PUBLIC_APP_URL is required");
-  const publicUrl = new URL(appUrl);
-  if (!["http:", "https:"].includes(publicUrl.protocol)) {
-    throw new Error("NEXT_PUBLIC_APP_URL must be an HTTP(S) URL");
-  }
+  const publicUrl = appUrl();
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
   const expectedState = request.cookies.get("oauth_state")?.value;

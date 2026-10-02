@@ -88,7 +88,7 @@ spec:
                 secretKeyRef: {name: {{ $root.Values.secret.name }}, key: {{ $root.Values.secret.databaseUrlKey }}}
             {{- else }}
             - {name: RAG_API_URL, value: {{ $root.Values.config.apiUrl | quote }}}
-            - {name: NEXT_PUBLIC_APP_URL, value: {{ $root.Values.config.appUrl | quote }}}
+            - {name: APP_URL, value: {{ required "config.appUrl is required" $root.Values.config.appUrl | quote }}}
             - {name: COGNITO_AUTHORIZE_URL, value: {{ required "config.cognitoAuthorizeUrl is required" $root.Values.config.cognitoAuthorizeUrl | quote }}}
             - {name: COGNITO_TOKEN_URL, value: {{ required "config.cognitoTokenUrl is required" $root.Values.config.cognitoTokenUrl | quote }}}
             - {name: COGNITO_LOGOUT_URL, value: {{ required "config.cognitoLogoutUrl is required" $root.Values.config.cognitoLogoutUrl | quote }}}
