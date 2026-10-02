@@ -264,7 +264,7 @@ resource "aws_globalaccelerator_endpoint_group" "duckdns" {
   listener_arn                  = aws_globalaccelerator_listener.duckdns[0].id
   endpoint_group_region         = data.aws_region.current.region
   health_check_interval_seconds = 30
-  health_check_path             = "/"
+  health_check_path             = "/login"
   health_check_port             = 443
   health_check_protocol         = "HTTPS"
   threshold_count               = 3
@@ -291,8 +291,9 @@ resource "aws_lb_target_group" "application" {
   target_type = "ip"
   vpc_id      = var.vpc_id
   health_check {
-    enabled             = true
-    path                = "/"
+    enabled = true
+    # The unauthenticated root redirects (307); /login is a public 200 endpoint.
+    path                = "/login"
     protocol            = "HTTP"
     healthy_threshold   = 2
     unhealthy_threshold = 3

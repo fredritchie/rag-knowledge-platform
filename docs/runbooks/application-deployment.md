@@ -41,9 +41,23 @@ Dispatch `application-environment-deployment` on `main`:
 Use the protected `dev`, `staging`, and `prod` GitHub environments for approvals. Production should
 require reviewers and prevent self-review. Never make the EKS endpoint public for deployment.
 
+### First-install database ordering
+
+On a missing release, the deployment first installs the chart with frontend, API, ingestion, and
+Drive-sync replicas set to zero and KEDA disabled. This creates the service accounts, network
+policies, and ExternalSecret required by the migration. Helm can then finish its readiness wait
+and run the `post-install` migration hook without waiting for workers that require missing tables.
+Only after that install succeeds does a second Helm operation reset the bootstrap overrides and
+start the configured replicas and autoscaler. Existing releases keep the `pre-upgrade` migration.
+If the second operation fails, the bootstrap revision may remain deployed with zero application
+replicas; correct the failure and rerun `application` to retry. Do not run overlapping deployments.
+
+The ALB (and accelerator health-check configuration) uses `/login`, not `/`: the unauthenticated
+root returns a 307 redirect, while the target-group health matcher requires HTTP 200.
+
 ## Verification
 
-The deployment waits for the frontend and API rollouts, then records deployments, StatefulSets,
+The deployment waits for frontend, API, ingestion-worker, and Drive-sync rollouts, then records deployments, StatefulSets,
 pods, ExternalSecrets, and TargetGroupBindings in the private CodeBuild log. Also verify:
 
 1. The ALB target group is healthy and `/login` returns HTTP 200.
