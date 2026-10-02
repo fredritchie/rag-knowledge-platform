@@ -68,7 +68,7 @@ spec:
             - {name: RAG__GENERATION__BASE_URL, value: {{ $root.Values.config.ollamaUrl | quote }}}
             - {name: AWS_REGION, value: {{ $root.Values.config.awsRegion | quote }}}
             - {name: RAG__EVENT_INGESTION__QUEUE_URL, value: {{ $root.Values.config.ingestionQueueUrl | quote }}}
-            - {name: RAG__EVENT_INGESTION__ENABLED, value: {{ if eq $workload.name "ingestion-worker" }}"true"{{ else }}"false"{{ end }}}
+            - {name: RAG__EVENT_INGESTION__ENABLED, value: {{ if or (eq $workload.name "ingestion-worker") (eq $workload.name "api") }}"true"{{ else }}"false"{{ end }}}
             - {name: RAG__STORAGE__BUCKET, value: {{ required "config.documentBucket is required" $root.Values.config.documentBucket | quote }}}
             - {name: RAG__STORAGE__REGION, value: {{ $root.Values.config.awsRegion | quote }}}
             - {name: RAG__STORAGE__SERVER_SIDE_ENCRYPTION, value: "aws:kms"}
